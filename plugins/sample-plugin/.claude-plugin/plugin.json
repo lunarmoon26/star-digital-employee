@@ -1,0 +1,14 @@
+{
+  "name": "sample-plugin",
+  "version": "0.3.0",
+  "description": "Sample plugin demonstrating the structure for star-digital-employee collection",
+  "author": {
+    "name": "Haochuan Zhang",
+    "email": "jackchang26@gmail.com"
+  },
+  "keywords": [
+    "sample",
+    "example",
+    "template"
+  ]
+}

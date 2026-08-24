@@ -1,0 +1,7 @@
+{
+  "name": "deepwiki",
+  "description": "Retrieve up-to-date AI-enhanced documentation and code examples for GitHub repositories indexed on DeepWiki.com. Ask natural language questions about repositories, browse documentation structure and contents, and get instant answers about codebases.",
+  "author": {
+    "name": "devin"
+  }
+}

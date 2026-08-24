@@ -1,0 +1,80 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "star-digital-employee",
+  "description": "Curated collection of Claude Code plugins for solo makers and hackers - development tools, knowledge management, and personal growth",
+  "owner": {
+    "name": "Haochuan Zhang",
+    "email": "jackchang26@gmail.com"
+  },
+  "plugins": [
+    {
+      "name": "sample-plugin",
+      "description": "Sample plugin demonstrating the structure for the star-digital-employee collection",
+      "version": "0.3.0",
+      "author": {
+        "name": "Haochuan Zhang",
+        "email": "jackchang26@gmail.com"
+      },
+      "source": "./plugins/sample-plugin",
+      "category": "example",
+      "homepage": "https://github.com/lunarmoon26/star-digital-employee/tree/main/plugins/sample-plugin"
+    },
+    {
+      "name": "deepwiki",
+      "description": "AI-powered codebase documentation and understanding. Analyze GitHub repositories with natural language questions, generate interactive documentation, architecture diagrams, and get instant code explanations. Transform any GitHub repo into searchable, AI-enhanced documentation.",
+      "author": {
+        "name": "devin"
+      },
+      "source": "./external_plugins/deepwiki",
+      "category": "development",
+      "homepage": "https://deepwiki.com",
+      "version": "0.3.0"
+    },
+    {
+      "name": "claude-plugins-official",
+      "description": "Directory of popular Claude Code extensions including development tools, productivity plugins, and MCP integrations",
+      "source": {
+        "source": "url",
+        "url": "https://github.com/anthropics/claude-plugins-official.git"
+      },
+      "homepage": "https://github.com/anthropics/claude-plugins-official",
+      "version": "0.3.0"
+    },
+    {
+      "name": "developer",
+      "description": "Professional development skills for Python, TypeScript, C#, and Java with industry best practices and coding standards",
+      "version": "0.3.0",
+      "author": {
+        "name": "Haochuan Zhang",
+        "email": "jackchang26@gmail.com"
+      },
+      "source": "./plugins/developer",
+      "category": "development",
+      "homepage": "https://github.com/lunarmoon26/star-digital-employee/tree/main/plugins/developer"
+    },
+    {
+      "name": "researcher",
+      "description": "5-phase research funnel methodology for systematic literature review - define, discover, filter, deep-dive, and synthesize technical research",
+      "version": "0.3.0",
+      "author": {
+        "name": "Haochuan Zhang",
+        "email": "jackchang26@gmail.com"
+      },
+      "source": "./plugins/researcher",
+      "category": "research",
+      "homepage": "https://github.com/lunarmoon26/star-digital-employee/tree/main/plugins/researcher"
+    },
+    {
+      "name": "architect",
+      "description": "Scaffold and evolve star-digital-employee plugins with marketplace integration",
+      "version": "0.3.0",
+      "author": {
+        "name": "Haochuan Zhang",
+        "email": "jackchang26@gmail.com"
+      },
+      "source": "./plugins/architect",
+      "category": "development",
+      "homepage": "https://github.com/lunarmoon26/star-digital-employee/tree/main/plugins/architect"
+    }
+  ]
+}

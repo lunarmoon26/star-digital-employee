@@ -1,0 +1,14 @@
+# Architecture Decisions
+
+Decision records preserve why significant choices were accepted. The
+[architecture](../architecture.md) owns the current target structure; these files
+own rationale and consequences.
+
+| Decision | Status |
+| --- | --- |
+| [0001: Use DeepSeek Harness behind a pinned process boundary](0001-use-deepseek-harness.md) | Accepted |
+| [0002: Isolate one employee per pod](0002-one-employee-per-pod.md) | Accepted |
+| [0003: Require durable message and effect state](0003-durable-message-and-effect-state.md) | Accepted |
+| [0004: Run heavy development in Kubernetes workspaces](0004-kubernetes-development-workspaces.md) | Accepted |
+| [0005: Limit Temporal to supervisory workflows](0005-temporal-supervisory-workflows.md) | Accepted |
+| [0006: Keep operational credentials outside Harness](0006-isolate-operational-credentials.md) | Accepted |

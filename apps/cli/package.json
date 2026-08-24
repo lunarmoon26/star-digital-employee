@@ -1,0 +1,20 @@
+{
+  "name": "@star/digital-employee",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "star-employee": "./dist/bin.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsup src/bin.ts --format esm --dts --clean"
+  },
+  "dependencies": {
+    "@star/employee-contracts": "workspace:*",
+    "commander": "15.0.0",
+    "yaml": "2.9.0"
+  }
+}

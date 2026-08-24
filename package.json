@@ -1,0 +1,27 @@
+{
+  "name": "star-digital-employee",
+  "version": "0.4.0",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@11.7.0",
+  "engines": {
+    "node": ">=24.0.0"
+  },
+  "scripts": {
+    "build": "pnpm --filter @star/employee-contracts build && pnpm --filter @star/digital-employee build",
+    "check": "pnpm docs:check && pnpm schema:check && pnpm typecheck && pnpm test && pnpm build",
+    "docs:check": "tsx scripts/check-doc-links.ts",
+    "schema:check": "tsx packages/contracts/scripts/schema.ts --check",
+    "schema:generate": "tsx packages/contracts/scripts/schema.ts --write",
+    "star-employee": "tsx apps/cli/src/bin.ts",
+    "test": "vitest run",
+    "typecheck": "tsc --project tsconfig.json --noEmit"
+  },
+  "devDependencies": {
+    "@types/node": "24.13.3",
+    "tsup": "8.5.1",
+    "tsx": "4.22.4",
+    "typescript": "6.0.3",
+    "vitest": "4.1.11"
+  }
+}

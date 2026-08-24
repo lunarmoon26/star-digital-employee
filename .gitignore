@@ -1,0 +1,32 @@
+# Local Claude Code settings
+.claude/
+
+# Node and package-manager state
+node_modules/
+.pnpm-store/
+*.tsbuildinfo
+
+# Python virtual environments
+venv/
+__pycache__/
+*.pyc
+
+# Environment variables (should be set by users)
+.env
+.env.local
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Build artifacts
+dist/
+build/
+coverage/
+*.egg-info/

@@ -1,0 +1,18 @@
+{
+  "name": "developer",
+  "version": "0.3.0",
+  "description": "Professional development skills for Python, TypeScript, C#, and Java with industry best practices and coding standards",
+  "author": {
+    "name": "Haochuan Zhang",
+    "email": "jackchang26@gmail.com"
+  },
+  "keywords": [
+    "python",
+    "typescript",
+    "csharp",
+    "java",
+    "development",
+    "best-practices",
+    "coding-standards"
+  ]
+}
