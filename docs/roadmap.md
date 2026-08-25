@@ -76,11 +76,16 @@ Completed in the topology slice:
 
 Remaining M3 gates:
 
-1. Render the chart from compiled recipe inputs (`helm template` conformance once
-   Helm is available in CI) and apply it on a kind cluster reproducing the PR #2
-   container checks.
+1. Apply the chart on a kind cluster reproducing the PR #2 container checks.
+   Render-time conformance already passed with Helm v4.2.4: `helm lint` reports no
+   failures and `helm template` renders all six resources with the verified
+   hardening (read-only root, dropped capabilities, no privilege escalation, no
+   service-account token, default-deny policy types). The kind apply is blocked by
+   a broken local Docker daemon.
 2. Define the OIDC proxy contract in front of DSH Web.
-3. Add namespace quota and limit-range templates.
+3. Added namespace-scoped `ResourceQuota` and container `LimitRange` templates
+   with a documented one-employee-per-namespace assumption (ADR 0002) and a
+   disable toggle; render conformance verified for both states with Helm v4.2.4.
 4. Implement the workspace broker contract for remote execution profiles.
 
 ## Deferred Decisions

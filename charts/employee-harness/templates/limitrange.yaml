@@ -1,0 +1,18 @@
+# Defaults keep any container that omits resources schedulable and bounded,
+# complementing the namespace quota.
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: {{ .Values.employeeName }}-limits
+  labels:
+    app.kubernetes.io/name: employee-harness
+    app.kubernetes.io/instance: {{ .Values.employeeName }}
+spec:
+  limits:
+    - type: Container
+      default:
+        cpu: {{ .Values.namespaceQuota.defaultContainerCpu | quote }}
+        memory: {{ .Values.namespaceQuota.defaultContainerMemory }}
+      defaultRequest:
+        cpu: {{ .Values.namespaceQuota.defaultContainerCpu | quote }}
+        memory: {{ .Values.namespaceQuota.defaultContainerMemory }}

@@ -71,4 +71,37 @@ describe('employee-harness chart source', () => {
     const account = await readFile(join(chartRoot, 'templates/serviceaccount.yaml'), 'utf8')
     expect(account).toContain('automountServiceAccountToken: false')
   })
+
+  it('bounds the namespace with a quota and container defaults', async () => {
+    const values = parse(
+      await readFile(join(chartRoot, 'values.yaml'), 'utf8'),
+    ) as {
+      namespaceQuota: Record<string, string | boolean>
+      runtime: { controlPod: { cpu: string; memory: string } }
+    }
+    expect(values.namespaceQuota.enabled).toBe(true)
+
+    const quota = await readFile(join(chartRoot, 'templates/quota.yaml'), 'utf8')
+    expect(quota).toContain('kind: ResourceQuota')
+    for (const key of [
+      'requests.cpu',
+      'requests.memory',
+      'limits.cpu',
+      'limits.memory',
+      'persistentvolumeclaims',
+      'requests.storage',
+      'pods',
+    ]) {
+      expect(quota).toContain(`${key}:`)
+    }
+    // Quota is namespace-scoped; the one-employee-per-namespace assumption must
+    // stay documented next to the resource.
+    expect(quota).toContain('one employee per namespace')
+
+    const limitRange = await readFile(join(chartRoot, 'templates/limitrange.yaml'), 'utf8')
+    expect(limitRange).toContain('kind: LimitRange')
+    expect(limitRange).toContain('type: Container')
+    expect(limitRange).toContain('default:')
+    expect(limitRange).toContain('defaultRequest:')
+  })
 })
