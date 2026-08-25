@@ -1,0 +1,87 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Values.employeeName }}-harness
+  labels:
+    app.kubernetes.io/name: employee-harness
+    app.kubernetes.io/instance: {{ .Values.employeeName }}
+spec:
+  # Exactly one replica per employee (ADR 0002); the DSH session log has one
+  # live writer and the PVC is ReadWriteOnce.
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: employee-harness
+      app.kubernetes.io/instance: {{ .Values.employeeName }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: employee-harness
+        app.kubernetes.io/instance: {{ .Values.employeeName }}
+    spec:
+      serviceAccountName: {{ .Values.employeeName }}-harness
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: harness
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}@{{ .Values.image.digest }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            privileged: false
+            capabilities:
+              drop:
+                - ALL
+          ports:
+            - name: web
+              containerPort: {{ .Values.web.port }}
+          resources:
+            requests:
+              cpu: {{ .Values.runtime.controlPod.cpu | quote }}
+              memory: {{ .Values.runtime.controlPod.memory }}
+            limits:
+              cpu: {{ .Values.runtime.controlPod.cpu | quote }}
+              memory: {{ .Values.runtime.controlPod.memory }}
+          volumeMounts:
+            - name: dsh-home
+              mountPath: /var/lib/star/dsh
+            - name: workspace
+              mountPath: /workspace
+            # Exec-permitting in-memory temporary storage: pinned DSH
+            # materializes native bindings into $TMPDIR before dlopen.
+            - name: tmp
+              mountPath: /tmp
+          livenessProbe:
+            httpGet:
+              path: /
+              port: web
+              scheme: HTTP
+            initialDelaySeconds: 15
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /
+              port: web
+              scheme: HTTP
+            initialDelaySeconds: 5
+            periodSeconds: 10
+      volumes:
+        - name: dsh-home
+          persistentVolumeClaim:
+            claimName: {{ .Values.employeeName }}-dsh-home
+        - name: workspace
+          persistentVolumeClaim:
+            claimName: {{ .Values.employeeName }}-workspace
+        - name: tmp
+          emptyDir:
+            medium: Memory
+            sizeLimit: 256Mi

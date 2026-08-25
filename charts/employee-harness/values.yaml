@@ -1,0 +1,32 @@
+# Values are rendered from a compiled Employee recipe lock by the compiler's
+# Kubernetes emitter. Every field below maps to an accepted contract:
+# image to the capability lock, resources to the recipe control pod, and security
+# controls to the verified container topology in docs/architecture.md (Deployment).
+
+employeeName: research-analyst
+
+image:
+  # Complete digest-pinned reference from capabilities.lock.json (lock.image.base).
+  repository: docker.io/library/node
+  digest: sha256:3638d9a6fe4030bd716be989438248074489337ba3275657f93595428be4fc03
+  # Employee images are built and pushed by the platform; the tag identifies the
+  # compiled lock. Pull policy stays Always so the digest remains authoritative.
+  tag: ""
+  pullPolicy: Always
+
+runtime:
+  controlPod:
+    cpu: "1"
+    memory: 2Gi
+  dshHome:
+    size: 20Gi
+    storageClassName: ""
+  workspaceSize: 10Gi
+
+web:
+  port: 3080
+
+networkPolicy:
+  # Default-deny both directions; explicit allows are added per deployment stage.
+  ingressAllowNamespace: ""
+  egressAllows: []

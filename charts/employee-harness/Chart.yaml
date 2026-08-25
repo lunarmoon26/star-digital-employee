@@ -1,0 +1,12 @@
+apiVersion: v2
+name: employee-harness
+description: One DeepSeek Harness employee pod with dedicated persistent state
+type: application
+version: 0.1.0
+appVersion: "0.4.0"
+keywords:
+  - star-digital-employee
+  - deepseek-harness
+annotations:
+  star.employee/contract: docs/product.md#harness-image-and-activation-contract
+  star.employee/decision: docs/decisions/0008-kubernetes-generated-resources.md

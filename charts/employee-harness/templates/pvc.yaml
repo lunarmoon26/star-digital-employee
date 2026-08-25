@@ -1,0 +1,33 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ .Values.employeeName }}-dsh-home
+  labels:
+    app.kubernetes.io/name: employee-harness
+    app.kubernetes.io/instance: {{ .Values.employeeName }}
+spec:
+  accessModes:
+    - ReadWriteOnce
+  {{- if .Values.runtime.dshHome.storageClassName }}
+  storageClassName: {{ .Values.runtime.dshHome.storageClassName | quote }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ .Values.runtime.dshHome.size }}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ .Values.employeeName }}-workspace
+  labels:
+    app.kubernetes.io/name: employee-harness
+    app.kubernetes.io/instance: {{ .Values.employeeName }}
+spec:
+  accessModes:
+    - ReadWriteOnce
+  {{- if .Values.runtime.dshHome.storageClassName }}
+  storageClassName: {{ .Values.runtime.dshHome.storageClassName | quote }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ .Values.runtime.workspaceSize }}
