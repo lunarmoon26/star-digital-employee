@@ -8,9 +8,10 @@
     "node": ">=24.0.0"
   },
   "scripts": {
-    "build": "pnpm --filter @star/employee-contracts build && pnpm --filter @star/digital-employee build",
+    "build": "pnpm --filter @star/employee-contracts build && pnpm --filter @star/employee-compiler build && pnpm --filter @star/digital-employee build",
     "check": "pnpm docs:check && pnpm schema:check && pnpm typecheck && pnpm test && pnpm build",
     "docs:check": "tsx scripts/check-doc-links.ts",
+    "runtime:smoke": "tsx scripts/smoke-harness-runtime.ts",
     "schema:check": "tsx packages/contracts/scripts/schema.ts --check",
     "schema:generate": "tsx packages/contracts/scripts/schema.ts --write",
     "star-employee": "tsx apps/cli/src/bin.ts",

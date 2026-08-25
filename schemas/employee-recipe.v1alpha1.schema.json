@@ -91,12 +91,11 @@
           ],
           "properties": {
             "package": {
-              "minLength": 1,
-              "maxLength": 214,
+              "const": "@deepseek-ai/dsh",
               "type": "string"
             },
             "version": {
-              "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(?:-[0-9A-Za-z.-]+)?(?:\\+[0-9A-Za-z.-]+)?$",
+              "const": "0.1.1-rc.2",
               "type": "string"
             },
             "profile": {
@@ -120,6 +119,7 @@
             "baseImage": {
               "minLength": 1,
               "maxLength": 512,
+              "pattern": "^(?:[a-z0-9]+(?:[._-][a-z0-9]+)*(?::[0-9]+)?/)*[a-z0-9]+(?:[._-][a-z0-9]+)*(?::[A-Za-z0-9_][A-Za-z0-9_.-]{0,127})?@sha256:[0-9a-f]{64}$",
               "type": "string"
             },
             "systemPackages": {
@@ -422,36 +422,142 @@
           "maxItems": 128,
           "type": "array",
           "items": {
-            "anyOf": [
-              {
-                "additionalProperties": false,
-                "type": "object",
-                "required": [
-                  "source"
-                ],
-                "properties": {
-                  "source": {
-                    "minLength": 1,
-                    "maxLength": 1024,
-                    "type": "string"
-                  }
-                }
+            "additionalProperties": false,
+            "type": "object",
+            "required": [
+              "name",
+              "source"
+            ],
+            "properties": {
+              "name": {
+                "minLength": 1,
+                "maxLength": 64,
+                "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+                "type": "string"
               },
-              {
-                "additionalProperties": false,
-                "type": "object",
-                "required": [
-                  "package"
-                ],
-                "properties": {
-                  "package": {
-                    "minLength": 1,
-                    "maxLength": 214,
-                    "type": "string"
+              "source": {
+                "anyOf": [
+                  {
+                    "additionalProperties": false,
+                    "type": "object",
+                    "required": [
+                      "type",
+                      "path"
+                    ],
+                    "properties": {
+                      "type": {
+                        "const": "local",
+                        "type": "string"
+                      },
+                      "path": {
+                        "minLength": 1,
+                        "maxLength": 1024,
+                        "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$))[^\\\\]+$",
+                        "type": "string"
+                      }
+                    }
+                  },
+                  {
+                    "additionalProperties": false,
+                    "type": "object",
+                    "required": [
+                      "type",
+                      "repository",
+                      "revision"
+                    ],
+                    "properties": {
+                      "type": {
+                        "const": "git",
+                        "type": "string"
+                      },
+                      "repository": {
+                        "minLength": 1,
+                        "maxLength": 2048,
+                        "type": "string"
+                      },
+                      "revision": {
+                        "pattern": "^[0-9a-f]{40}$",
+                        "type": "string"
+                      },
+                      "subpath": {
+                        "minLength": 1,
+                        "maxLength": 1024,
+                        "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$))[^\\\\]+$",
+                        "type": "string"
+                      }
+                    }
+                  },
+                  {
+                    "additionalProperties": false,
+                    "type": "object",
+                    "required": [
+                      "type",
+                      "package",
+                      "version"
+                    ],
+                    "properties": {
+                      "type": {
+                        "const": "npm",
+                        "type": "string"
+                      },
+                      "package": {
+                        "minLength": 1,
+                        "maxLength": 214,
+                        "pattern": "^(?:@[a-z0-9][a-z0-9._-]*/)?[a-z0-9][a-z0-9._-]*$",
+                        "type": "string"
+                      },
+                      "version": {
+                        "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(?:-[0-9A-Za-z.-]+)?(?:\\+[0-9A-Za-z.-]+)?$",
+                        "type": "string"
+                      },
+                      "subpath": {
+                        "minLength": 1,
+                        "maxLength": 1024,
+                        "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$))[^\\\\]+$",
+                        "type": "string"
+                      }
+                    }
                   }
-                }
+                ]
               }
-            ]
+            }
+          }
+        },
+        "plugins": {
+          "maxItems": 128,
+          "type": "array",
+          "items": {
+            "additionalProperties": false,
+            "type": "object",
+            "required": [
+              "id",
+              "package",
+              "version",
+              "entry"
+            ],
+            "properties": {
+              "id": {
+                "minLength": 1,
+                "maxLength": 63,
+                "pattern": "^[a-z](?:[a-z0-9-]{0,61}[a-z0-9])?$",
+                "type": "string"
+              },
+              "package": {
+                "minLength": 1,
+                "maxLength": 214,
+                "pattern": "^(?:@[a-z0-9][a-z0-9._-]*/)?[a-z0-9][a-z0-9._-]*$",
+                "type": "string"
+              },
+              "version": {
+                "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(?:-[0-9A-Za-z.-]+)?(?:\\+[0-9A-Za-z.-]+)?$",
+                "type": "string"
+              },
+              "entry": {
+                "minLength": 1,
+                "maxLength": 512,
+                "type": "string"
+              }
+            }
           }
         },
         "connectors": {

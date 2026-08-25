@@ -1,40 +1,58 @@
 import { readFile, writeFile } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
+import { CapabilityLockSchema } from '../src/capability-lock.js'
 import { EmployeeRecipeSchema } from '../src/employee-recipe.js'
 
-const target = fileURLToPath(
-  new URL('../../../schemas/employee-recipe.v1alpha1.schema.json', import.meta.url),
-)
-const expected = `${JSON.stringify(EmployeeRecipeSchema, null, 2)}\n`
+const schemas = [
+  {
+    name: 'Employee recipe',
+    target: fileURLToPath(
+      new URL('../../../schemas/employee-recipe.v1alpha1.schema.json', import.meta.url),
+    ),
+    value: EmployeeRecipeSchema,
+  },
+  {
+    name: 'Capability lock',
+    target: fileURLToPath(
+      new URL('../../../schemas/capability-lock.v1alpha1.schema.json', import.meta.url),
+    ),
+    value: CapabilityLockSchema,
+  },
+]
 
 async function main(): Promise<void> {
   if (process.argv.includes('--write')) {
-    await writeFile(target, expected, 'utf8')
-    process.stdout.write(`Generated ${target}\n`)
+    for (const schema of schemas) {
+      await writeFile(schema.target, `${JSON.stringify(schema.value, null, 2)}\n`, 'utf8')
+      process.stdout.write(`Generated ${schema.target}\n`)
+    }
     return
   }
 
   if (process.argv.includes('--check')) {
-    let actual: string
-    try {
-      actual = await readFile(target, 'utf8')
-    } catch {
-      process.stderr.write(
-        'Generated Employee recipe schema is missing. Run pnpm schema:generate.\n',
-      )
-      process.exitCode = 1
-      return
+    for (const schema of schemas) {
+      let actual: string
+      try {
+        actual = await readFile(schema.target, 'utf8')
+      } catch {
+        process.stderr.write(
+          `Generated ${schema.name} schema is missing. Run pnpm schema:generate.\n`,
+        )
+        process.exitCode = 1
+        return
+      }
+
+      const expected = `${JSON.stringify(schema.value, null, 2)}\n`
+      if (actual !== expected) {
+        process.stderr.write(
+          `Generated ${schema.name} schema is stale. Run pnpm schema:generate.\n`,
+        )
+        process.exitCode = 1
+        return
+      }
     }
 
-    if (actual !== expected) {
-      process.stderr.write(
-        'Generated Employee recipe schema is stale. Run pnpm schema:generate.\n',
-      )
-      process.exitCode = 1
-      return
-    }
-
-    process.stdout.write('Employee recipe schema is current.\n')
+    process.stdout.write(`Generated schemas are current (${schemas.length}).\n`)
     return
   }
 

@@ -13,6 +13,9 @@
     "paths": {
       "@star/employee-contracts": [
         "./packages/contracts/src/index.ts"
+      ],
+      "@star/employee-compiler": [
+        "./packages/compiler/src/index.ts"
       ]
     },
     "resolveJsonModule": true,
@@ -27,6 +30,7 @@
   "include": [
     "apps/**/*.ts",
     "packages/**/*.ts",
+    "scripts/**/*.ts",
     "vitest.config.ts"
   ]
 }

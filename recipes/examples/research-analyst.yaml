@@ -17,12 +17,8 @@ spec:
     profile: employee-web
 
   runtime:
-    baseImage: node:24-bookworm-slim
-    systemPackages:
-      - name: ca-certificates
-      - name: git
-      - name: openssh-client
-      - name: ripgrep
+    baseImage: docker.io/library/node:24-bookworm-slim@sha256:3638d9a6fe4030bd716be989438248074489337ba3275657f93595428be4fc03
+    systemPackages: []
     cliPackages: []
     environment:
       LOG_LEVEL:
@@ -44,7 +40,17 @@ spec:
     instructions: ./persona/research-analyst.md
 
   skills:
-    - source: ../../plugins/researcher/skills/research-methodology
+    - name: harness-alchemist
+      source:
+        type: npm
+        package: harness-alchemist
+        version: 0.1.8
+
+  plugins:
+    - id: harness-alchemist
+      package: harness-alchemist
+      version: 0.1.8
+      entry: harness-alchemist/deepseek
 
   connectors:
     slack:

@@ -48,8 +48,17 @@ function validRecipe(): EmployeeRecipe {
         audit: 'required',
         contentCapture: false,
       },
+      plugins: [
+        {
+          entry: 'harness-alchemist/deepseek',
+          id: 'harness-alchemist',
+          package: 'harness-alchemist',
+          version: '0.1.8',
+        },
+      ],
       runtime: {
-        baseImage: 'node:24-bookworm-slim',
+        baseImage:
+          'docker.io/library/node:24-bookworm-slim@sha256:3638d9a6fe4030bd716be989438248074489337ba3275657f93595428be4fc03',
         cliPackages: [],
         controlPod: {
           cpu: '1',
@@ -66,6 +75,16 @@ function validRecipe(): EmployeeRecipe {
         },
         systemPackages: [{ name: 'git' }],
       },
+      skills: [
+        {
+          name: 'harness-alchemist',
+          source: {
+            package: 'harness-alchemist',
+            type: 'npm',
+            version: '0.1.8',
+          },
+        },
+      ],
       tools: {
         allow: ['wiki.search'],
         defaultPolicy: 'read-only',
@@ -179,6 +198,129 @@ describe('Employee recipe validation', () => {
     if (result.ok) return
     expect(result.issues).toContainEqual(
       expect.objectContaining({ path: expect.stringContaining('development-large') }),
+    )
+  })
+
+  it('rejects floating capability package versions', () => {
+    const recipe = validRecipe()
+    recipe.spec.skills![0]!.source = {
+      package: 'harness-alchemist',
+      type: 'npm',
+      version: 'latest',
+    }
+
+    const result = validateEmployeeRecipe(recipe)
+
+    expect(result.ok).toBe(false)
+    if (result.ok) return
+    expect(result.issues).toContainEqual(
+      expect.objectContaining({
+        keyword: 'pattern',
+        path: '/spec/skills/0/source/version',
+      }),
+    )
+  })
+
+  it('rejects an unpinned DSH release', () => {
+    const recipe = validRecipe()
+    const harness = recipe.spec.harness as { version: string }
+    harness.version = '0.1.1'
+
+    const result = validateEmployeeRecipe(recipe)
+
+    expect(result.ok).toBe(false)
+    if (result.ok) return
+    expect(result.issues).toContainEqual(
+      expect.objectContaining({
+        keyword: 'const',
+        path: '/spec/harness/version',
+      }),
+    )
+  })
+
+  it('rejects a mutable runtime base image', () => {
+    const recipe = validRecipe()
+    recipe.spec.runtime.baseImage = 'node:24-bookworm-slim'
+
+    const result = validateEmployeeRecipe(recipe)
+
+    expect(result.ok).toBe(false)
+    if (result.ok) return
+    expect(result.issues).toContainEqual(
+      expect.objectContaining({
+        keyword: 'pattern',
+        path: '/spec/runtime/baseImage',
+      }),
+    )
+  })
+
+  it('rejects mutable Git skill revisions', () => {
+    const recipe = validRecipe()
+    recipe.spec.skills = [
+      {
+        name: 'env-report',
+        source: {
+          repository: 'https://token@github.com/lunarmoon26/test-harness-alchemist.git',
+          revision: 'main',
+          type: 'git',
+        },
+      },
+    ] as unknown as NonNullable<EmployeeRecipe['spec']['skills']>
+
+    const result = validateEmployeeRecipe(recipe)
+
+    expect(result.ok).toBe(false)
+    if (result.ok) return
+    expect(result.issues).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ path: '/spec/skills/0/source/revision' }),
+      ]),
+    )
+  })
+
+  it('rejects credential-bearing Git skill sources', () => {
+    const recipe = validRecipe()
+    recipe.spec.skills = [
+      {
+        name: 'env-report',
+        source: {
+          repository: 'https://token@github.com/lunarmoon26/test-harness-alchemist.git',
+          revision: '77484b8933bd556f41f07f733c5644ab1ff2cbc1',
+          type: 'git',
+        },
+      },
+    ]
+
+    const result = validateEmployeeRecipe(recipe)
+
+    expect(result.ok).toBe(false)
+    if (result.ok) return
+    expect(result.issues).toContainEqual(
+      expect.objectContaining({ keyword: 'gitRepository' }),
+    )
+  })
+
+  it('rejects duplicate capability names and entries outside a plugin package', () => {
+    const recipe = validRecipe()
+    recipe.spec.skills!.push(recipe.spec.skills![0]!)
+    recipe.spec.plugins![0]!.entry = 'another-package/deepseek'
+    recipe.spec.plugins!.push({
+      entry: 'harness-alchemist/deepseek',
+      id: 'second-entry',
+      package: 'harness-alchemist',
+      version: '0.1.7',
+    })
+
+    const result = validateEmployeeRecipe(recipe)
+
+    expect(result.ok).toBe(false)
+    if (result.ok) return
+    expect(result.issues).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ keyword: 'duplicateSkill' }),
+        expect.objectContaining({ keyword: 'pluginEntry' }),
+        expect.objectContaining({ keyword: 'pluginVersionConflict' }),
+      ]),
     )
   })
 })

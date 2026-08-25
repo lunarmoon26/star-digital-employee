@@ -7,15 +7,13 @@ channels, and an auditable execution history.
 
 ## Status
 
-The project is in its foundation milestone. The implemented surface validates the
-first `Employee` recipe contract. The container runtime, DeepSeek Harness bridge,
-channels, durable task supervisor, remote workspaces, and Temporal integration are
-accepted product behavior tracked in the [roadmap](docs/roadmap.md), but are not yet
-implemented.
-
-The repository previously shipped a Claude Code plugin marketplace. Those files
-remain as migration inputs while useful prompts and skills are reviewed. They are
-not the architecture or configuration model of the new product.
+The contract foundation is implemented and the Harness core milestone is in
+progress. The current surface validates the `Employee` recipe and compiles its
+pinned Agent Skills and Cordis package entries into a deterministic capability
+lock, frozen DSH runtime graph, generated image, profile, and preset. Idempotent
+activation and an outbound-guarded host DSH Web smoke are implemented. The DeepSeek
+Harness bridge, channels, durable task supervision, remote workspaces, and Temporal
+integration remain tracked in the [roadmap](docs/roadmap.md).
 
 ## Quick Start
 
@@ -23,6 +21,7 @@ Requirements:
 
 - Node.js 24
 - pnpm 11
+- Docker, only when building the generated image
 
 Install dependencies and validate the example employee recipe:
 
@@ -37,7 +36,25 @@ Expected output:
 Valid Employee recipe: research-analyst (star.employee/v1alpha1)
 ```
 
-Run the complete local verification:
+Compile the immutable Harness inputs and run the host runtime smoke:
+
+```bash
+pnpm star-employee recipe compile recipes/examples/research-analyst.yaml \
+  --output .star/research-analyst
+pnpm runtime:smoke .star/research-analyst
+```
+
+The smoke prefetches the frozen graph, installs it offline without lifecycle
+scripts, removes the build-only package manager, blocks non-loopback Node TCP
+connections, and checks the generated preset and exact skill catalog through DSH
+Web RPC. Build the same artifact as an image when Docker is available:
+
+```bash
+docker build --file .star/research-analyst/image/Dockerfile \
+  --tag star-research-analyst:local .star/research-analyst
+```
+
+Run the static, unit, schema, documentation, and build verification:
 
 ```bash
 pnpm check
@@ -52,6 +69,7 @@ pnpm check
 | Unimplemented milestones | [Roadmap](docs/roadmap.md) |
 | Significant design rationale | [Architecture decisions](docs/decisions/README.md) |
 | Exact recipe syntax | [`EmployeeRecipeSchema`](packages/contracts/src/employee-recipe.ts) and the generated [JSON Schema](schemas/employee-recipe.v1alpha1.schema.json) |
+| Exact capability-lock syntax | [`CapabilityLockSchema`](packages/contracts/src/capability-lock.ts) and the generated [JSON Schema](schemas/capability-lock.v1alpha1.schema.json) |
 | Contribution and verification workflow | [Contributing guide](CONTRIBUTING.md) |
 
 ## Repository Layout
@@ -62,14 +80,14 @@ packages/             Reusable contracts and runtime packages
 schemas/              Generated, distributable machine contracts
 recipes/              Example infrastructure-as-code recipes
 docs/                 Product, architecture, roadmap, and decisions
-plugins/              Legacy Claude plugin content awaiting migration review
-external_plugins/     Legacy MCP wrappers awaiting migration review
 ```
 
 ## Core Direction
 
 - DeepSeek Harness is the pinned agent execution engine, not the employee control
   plane.
+- Pinned open source tools discover build-time capabilities; the Star recipe lock
+  and content-addressed runtime layout remain the deployment authority.
 - One employee pod is one trust boundary with dedicated persistent state.
 - The supervisor owns channels, durable work, policy, approvals, and audit
   correlation.
