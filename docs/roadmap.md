@@ -76,13 +76,21 @@ Completed in the topology slice:
 
 Remaining M3 gates:
 
-1. Apply the chart on a kind cluster reproducing the PR #2 container checks.
-   Render-time conformance already passed with Helm v4.2.4: `helm lint` reports no
-   failures and `helm template` renders all six resources with the verified
-   hardening (read-only root, dropped capabilities, no privilege escalation, no
-   service-account token, default-deny policy types). The kind apply is blocked by
-   a broken local Docker daemon.
-2. Define the OIDC proxy contract in front of DSH Web.
+1. Applied the chart on a kind cluster (v1.36 node): render-time conformance with
+   Helm v4.2.4 (`helm lint` clean), image loaded into the cluster, all resources
+   created, rollout healthy, and the PR #2 container checks reproduced in-pod —
+   package-manager and Git executables absent, locked preset healthy and default,
+   session exposes exactly the locked skill, and pod deletion recreates and
+   reactivates idempotently. Conformance caught and fixed two real defects: the
+   values' `image.digest` held the base-image manifest instead of the employee
+   image digest, and HTTP probes cannot reach a pod IP because pinned DSH binds
+   127.0.0.1 only and intentionally rejects `--host 0.0.0.0`; probes are now
+   exec-based against loopback. NetworkPolicy objects apply successfully, though
+   kind's default CNI does not enforce them; enforcement evidence still needs a
+   policy-capable cluster.
+2. Define the OIDC proxy contract in front of DSH Web as an in-pod sidecar: it
+   must share the network namespace and forward to loopback because DSH refuses
+   non-loopback binds by design.
 3. Added namespace-scoped `ResourceQuota` and container `LimitRange` templates
    with a documented one-employee-per-namespace assumption (ADR 0002) and a
    disable toggle; render conformance verified for both states with Helm v4.2.4.

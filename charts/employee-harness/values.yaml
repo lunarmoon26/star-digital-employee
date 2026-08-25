@@ -6,12 +6,15 @@
 employeeName: research-analyst
 
 image:
-  # Complete digest-pinned reference from capabilities.lock.json (lock.image.base).
+  # Employee image reference rendered from the platform registry after the
+  # compiled artifact is built and pushed. `digest`, when set, must be the
+  # employee image's own manifest digest. The build-time base image remains
+  # separately pinned by capabilities.lock.json (lock.image.base).
   repository: docker.io/library/node
-  digest: sha256:3638d9a6fe4030bd716be989438248074489337ba3275657f93595428be4fc03
-  # Employee images are built and pushed by the platform; the tag identifies the
-  # compiled lock. Pull policy stays Always so the digest remains authoritative.
-  tag: ""
+  digest: ""
+  tag: latest
+  # Use Always against the platform registry; use Never only when the image is
+  # preloaded into the target cluster (for example a kind conformance run).
   pullPolicy: Always
 
 runtime:

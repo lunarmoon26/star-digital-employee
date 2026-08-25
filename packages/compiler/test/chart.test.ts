@@ -28,7 +28,11 @@ describe('employee-harness chart source', () => {
       web: { port: number }
     }
     expect(values.employeeName).toMatch(/^[a-z](?:[a-z0-9-]{0,61}[a-z0-9])?$/)
-    expect(values.image.digest).toMatch(/^sha256:[0-9a-f]{64}$/)
+    // Digest, when supplied, must be the employee image's own manifest digest;
+    // the build-time base stays pinned by the capability lock.
+    if (values.image.digest !== '') {
+      expect(values.image.digest).toMatch(/^sha256:[0-9a-f]{64}$/)
+    }
     expect(values.image.pullPolicy).toBe('Always')
     expect(values.runtime.controlPod.cpu).toBeTruthy()
     expect(values.runtime.controlPod.memory).toMatch(/^[1-9][0-9]*(?:Ki|Mi|Gi|Ti)$/)
@@ -49,7 +53,14 @@ describe('employee-harness chart source', () => {
     // bindings into $TMPDIR before dlopen.
     expect(deployment).toContain('medium: Memory')
     expect(deployment).toContain('/tmp')
-    const imageLine = /image: "\{\{[^}]+}}:\{\{[^}]+}}@\{\{[^}]+}}"/.exec(deployment)
+    // Probes must be exec-based against loopback: pinned DSH binds 127.0.0.1
+    // only and rejects --host 0.0.0.0 by design.
+    expect(deployment).toContain('exec:')
+    expect(deployment).not.toContain('httpGet:')
+    expect(deployment).toContain("fetch('http://127.0.0.1:")
+    const imageLine = /image: "\{\{[^}]+}}:\{\{[^}]+}}\{\{- if \.Values\.image\.digest \}\}@{{[^}]+}}{{- end }}"/.exec(
+      deployment,
+    )
     expect(imageLine).not.toBeNull()
   })
 

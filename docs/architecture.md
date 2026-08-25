@@ -203,7 +203,15 @@ image builds from its emitted Dockerfile and runs with `--network none`,
 checks confirmed npm, pnpm, Corepack, yarn, Git, apt, and dpkg are absent; DSH Web
 reached readiness; the locked preset was listed healthy and default; a session on
 that preset exposed exactly the locked skill; and a container restart reactivated
-idempotently. One mount requirement was discovered: pinned DSH loads native peer
+idempotently. Verified on 2026-08-25 with Docker Desktop 29.7.2 and a kind v1.36 cluster: the
+chart applies cleanly, the pod reaches readiness with exec-based loopback probes,
+and the container checks from the Docker evidence reproduce in-pod, including
+idempotent reactivation after pod deletion. Pinned DSH binds DSH Web to 127.0.0.1
+only and rejects `--host 0.0.0.0` by design because the Web surface is
+code-execution-equivalent; the authentication proxy must therefore run as an
+in-pod sidecar sharing the network namespace and forwarding to loopback.
+
+One mount requirement was discovered: pinned DSH loads native peer
 bindings by materializing them into `$TMPDIR` before `dlopen`, so the writable
 temporary mount must allow execution (`exec`), which default Docker tmpfs options
 omit.
