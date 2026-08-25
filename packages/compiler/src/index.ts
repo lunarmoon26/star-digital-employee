@@ -23,24 +23,133 @@ import {
 } from '@star/employee-contracts'
 import * as tar from 'tar'
 import { parse, stringify } from 'yaml'
+import { dockerfileSource, runtimeEntrypointSource } from './image.js'
 
 const SKILL_MANAGER = {
+  contentDigest:
+    'sha256:9bb08d2fa5128acb9914ef5f719fb9f759229fc64da639a2bf6f5a8da42882dd' as const,
   integrity:
     'sha512-+hMNBSi35yfX0sKD+ZcRm9y5or7u313OdkcvrRvJAsAzGCaA8wRTu2OmVdN0KRbk9ybqKby5dijkn6OVvNTUmw==' as const,
   package: 'skills' as const,
   version: '1.5.23' as const,
 }
 const PACKAGE_MANAGER = {
+  contentDigest:
+    'sha256:56a89bfc6bfdd52bfafcc2e42383d28dd0699abd979c9f04fb2a30794a17eb09' as const,
   integrity:
     'sha512-GcyFLBIMcSV2DyRD7mvgyltA+fUFmN4aCaHxd1A+AQ5Xwjx3ZG4B52HeWb+HT7IqM5jDOrlpH8E+uUa28PTWIA==' as const,
   package: 'pnpm' as const,
   version: '11.7.0' as const,
 }
-// Derived from the integrity-verified npm archives, excluding pnpm's root-level links.
-const SKILL_MANAGER_CONTENT_DIGEST =
-  'sha256:9bb08d2fa5128acb9914ef5f719fb9f759229fc64da639a2bf6f5a8da42882dd'
-const PACKAGE_MANAGER_CONTENT_DIGEST =
-  'sha256:56a89bfc6bfdd52bfafcc2e42383d28dd0699abd979c9f04fb2a30794a17eb09'
+// Required peers omitted from the published @deepseek-ai/dsh dependency closure.
+const DSH_RUNTIME_SUPPORT = {
+  '@deepseek-ai/cordis-plugin-group': {
+    integrity:
+      'sha512-E1NThkFB3jn3TCqa6Oc++1zQHqLejF3W2wDwv2BlL3UEmgtBXL1K1j1koc+j676RuiOXtJkUJlPcOntRGKLWBQ==',
+    version: '1.0.1',
+  },
+  '@deepseek-ai/dsh-anonymous-user-id': {
+    integrity:
+      'sha512-ZQBsDhI0VuFwoDnq75VT2gPJdMPmBYfWM3EBDmUkwHM0E2dmyr+iLGXxp33a7M64r79x7kN+81KOTEL5LS0E8A==',
+    version: '0.1.1-rc.2',
+  },
+  '@deepseek-ai/dsh-atomic-write': {
+    integrity:
+      'sha512-QqNSF0+Ddn6qWY480dlilwEy6FLv3JKEWx1UQgoNJrxD4y54SDRzqBQB9yDXWKOoOGyC+05TN6/Px10GNIzMWA==',
+    version: '0.1.1-rc.2',
+  },
+  '@deepseek-ai/dsh-authorization': {
+    integrity:
+      'sha512-+ye7d4XzenQ4kpfY2nMIlUhoIbcprotL9fmkTBahafIPDhyyph0JzmUVhz1AGnkIqZc8TltjGzX2ssald+f+3A==',
+    version: '0.1.1-rc.2',
+  },
+  '@deepseek-ai/dsh-bash-local': {
+    integrity:
+      'sha512-GAjYTVsJKXkAptjO767xqt0otMufZRtj2qvOAvkx5Bfusd5R6+mMUkSbcx2K2A8WMbltyCbjwhZf4Tu4xyJAdw==',
+    version: '0.1.1-rc.2',
+  },
+  '@deepseek-ai/dsh-code-runtime': {
+    integrity:
+      'sha512-SgFresqH5UABzRQZ7tOfqzOLMHF7089VeH+mfcwNQH5peOavgEKrAGOYz/9RnISH0XmMrj/x177t8gfO8Uvo/w==',
+    version: '0.1.1-rc.2',
+  },
+  '@deepseek-ai/dsh-compaction': {
+    integrity:
+      'sha512-LV5GAIx7GO8DCRivnN2bmLmuucsYDG+ifG18BaXBqsVKdrzmaIu5o+CBxQAI2bX1N6mfBenLxmvCnROkyumLTg==',
+    version: '0.1.1-rc.2',
+  },
+  '@deepseek-ai/dsh-fs': {
+    integrity:
+      'sha512-8j+6MffvCHATLQrhAVfc9rKyunKu/O7mjjJzmdsUSdID7V4iUYMwqPamhlAyI+tfohZu/vcforKzCRIZGmCYug==',
+    version: '0.1.1-rc.2',
+  },
+  '@deepseek-ai/dsh-invariants': {
+    integrity:
+      'sha512-l+1Om/EDFyMjhgSuEx2WDLLA2fia/+ga9mBTCoT/MMslsnWaK5G0/lWwbwlTBSaJ6OfmYc3DuBgox8DbgIGHRQ==',
+    version: '0.1.1-rc.2',
+  },
+  '@deepseek-ai/dsh-output-retention': {
+    integrity:
+      'sha512-tCni+bTEp/FWokfz3fqn4p6SzHn6pkY6H3HkS9UY5PHrztUE1ESUQUp41kIVtwUhRmJU7yissqjxe6kLDB6t2Q==',
+    version: '0.1.1-rc.2',
+  },
+  '@deepseek-ai/dsh-sandbox': {
+    integrity:
+      'sha512-rnO2RqZ+ycpwrXrXlMcrhWAICdui3ZVTjNQ8eZrOPE18hAbX3tw0nLFq26sBjMSnBfDQHNZ4VaFpt0p8qhkPWQ==',
+    version: '0.1.1-rc.2',
+  },
+  '@deepseek-ai/dsh-scope': {
+    integrity:
+      'sha512-Xy3ejL6dwVSluZL7XOWy76ya4pCw1uHwxodDK4O9XiQUiUV4FBXnt0aNJUtMeAFN0c1YujxxCmRniMvuuNn1Nw==',
+    version: '0.1.1-rc.2',
+  },
+  '@deepseek-ai/dsh-session-telemetry': {
+    integrity:
+      'sha512-yYNUtpxykp10m6YVCcfmxtfiRZeNr9g+Mg5/37oO6W5Fs9A6L3vfCM4Ppn47lwLbQetejsR1QClV4P4I//c01g==',
+    version: '0.1.1-rc.2',
+  },
+  '@deepseek-ai/dsh-session-title-llm': {
+    integrity:
+      'sha512-UTdH4h5zuMsNDSEAa3xp6YsfVbLRCCkm/0uBt8wKhu7+rWh7OCgvAgvvwaIKEGST8/8NWC6ogdT2GFNCX4WizQ==',
+    version: '0.1.1-rc.2',
+  },
+  '@deepseek-ai/dsh-shell': {
+    integrity:
+      'sha512-gEqPUxKOpOV66wvM4o8Z5FEuWmsEvYzD9OQy3cyo/kjzlx+2+KUWi22cl/YWtBs/zUtRJbdG5UqMnh8GUeO8Hg==',
+    version: '0.1.1-rc.2',
+  },
+  '@deepseek-ai/dsh-spill': {
+    integrity:
+      'sha512-iayBN51zRj0+ER6KKJM6UlN1dfKXe5eDJeSwYmH+j3wLbCBQTD7Axnhmo9t68JBRrg+eczg2epFMR5RrXrisUQ==',
+    version: '0.1.1-rc.2',
+  },
+  '@deepseek-ai/dsh-subagent-in-process-driver': {
+    integrity:
+      'sha512-+GCNjPnRJOB4fv6pc4b9qQZvzoluH9neOLCrKEpJsoNn1c2XCQMaylc8G+WEziIbvzDvHcpKJJWm50XlKuDfMg==',
+    version: '0.1.1-rc.2',
+  },
+  '@deepseek-ai/dsh-timeout': {
+    integrity:
+      'sha512-RrouVgU3G5gXr9zHhpThkMG6YKdcRJzXXdPm1dq3ioBxbvxlfMSfNY4tN8lWMJxLyGtvWkPra0HQX+YWxvdOOA==',
+    version: '0.1.1-rc.2',
+  },
+  '@deepseek-ai/dsh-workflow': {
+    integrity:
+      'sha512-YHUGOBfHGXVr9RRAdCvKZ/1SeeKx4jRumSBMNJo1ETbVqEK+ov2kV61pHFfLu1h+heCsEbOsEJeVXvgYC8EBhw==',
+    version: '0.1.1-rc.2',
+  },
+  react: {
+    integrity:
+      'sha512-wS+hAgJShR0KhEvPJArfuPVN1+Hz1t0Y6n5jLrGQbkb4urgPE/0Rve+1kMB1v/oWgHgm4WIcV+i7F2pTVj+2iQ==',
+    version: '18.3.1',
+  },
+  'react-dom': {
+    integrity:
+      'sha512-5m4nQKp+rZRb09LNH59GM4BxTh9251/ylbKIbpe7TpGxfJ+9kv6BLkLBXIjjspbgbnIBNqlI23tRnTWT0snUIw==',
+    version: '18.3.1',
+  },
+} as const
+// Derived from integrity-verified npm archives, excluding package-manager install links.
 const MINIPASS_RUNTIME = {
   contentDigest: 'sha256:c3b02adbacef5635eb4b5eaae350b667a9b4added839b45eeef3420bd688a591',
   package: 'minipass',
@@ -125,7 +234,7 @@ interface LockedToolPackage {
 export interface CompileCapabilitiesOptions {
   allowedGitHosts?: readonly string[]
   fetch?: Fetch
-  generateProfileLock?: ProfileLockGenerator
+  generateRuntimeLock?: RuntimeLockGenerator
   gitExecutable?: string
   outputDirectory: string
   recipe: EmployeeRecipe
@@ -138,14 +247,21 @@ export interface CompileCapabilitiesResult {
   outputDirectory: string
 }
 
-export interface ProfileLockGeneratorOptions {
-  environment: NodeJS.ProcessEnv
-  profileDirectory: string
-  registryUrl: string
+export interface RuntimeDirectPackage {
+  integrity: string
+  package: string
+  version: string
 }
 
-export type ProfileLockGenerator = (
-  options: ProfileLockGeneratorOptions,
+export interface RuntimeLockGeneratorOptions {
+  directPackages: readonly RuntimeDirectPackage[]
+  environment: NodeJS.ProcessEnv
+  registryUrl: string
+  runtimeDirectory: string
+}
+
+export type RuntimeLockGenerator = (
+  options: RuntimeLockGeneratorOptions,
 ) => Promise<void>
 
 function errorMessage(error: unknown): string {
@@ -771,7 +887,7 @@ async function skillsCliPath(): Promise<string> {
     'skills/package.json',
     SKILL_MANAGER.package,
     SKILL_MANAGER.version,
-    SKILL_MANAGER_CONTENT_DIGEST,
+    SKILL_MANAGER.contentDigest,
     'bin/cli.mjs',
     SKILL_MANAGER_RUNTIME_DEPENDENCIES,
   )
@@ -782,15 +898,38 @@ async function pnpmCliPath(): Promise<string> {
     'pnpm',
     PACKAGE_MANAGER.package,
     PACKAGE_MANAGER.version,
-    PACKAGE_MANAGER_CONTENT_DIGEST,
+    PACKAGE_MANAGER.contentDigest,
     'bin/pnpm.mjs',
   )
 }
 
-const generatePnpmProfileLock: ProfileLockGenerator = async ({
+async function pnpmPackageRoot(): Promise<string> {
+  const manifestPath = require.resolve('pnpm')
+  await verifyInstalledToolPackage(
+    manifestPath,
+    PACKAGE_MANAGER.package,
+    PACKAGE_MANAGER.version,
+    PACKAGE_MANAGER.contentDigest,
+  )
+  return dirname(manifestPath)
+}
+
+async function copyBuildToolPackage(source: string, destination: string): Promise<void> {
+  await cp(source, destination, {
+    recursive: true,
+    filter: (path) => {
+      const child = relative(source, path)
+      return child !== 'node_modules' && !child.startsWith(`node_modules${sep}`)
+    },
+  })
+  await assertNoSourceSymlinks(destination)
+  await normalizeTreeModes(destination)
+}
+
+const generatePnpmRuntimeLock: RuntimeLockGenerator = async ({
   environment,
-  profileDirectory,
   registryUrl,
+  runtimeDirectory,
 }) => {
   await runCommand(
     process.execPath,
@@ -804,7 +943,7 @@ const generatePnpmProfileLock: ProfileLockGenerator = async ({
       registryUrl,
     ],
     {
-      cwd: profileDirectory,
+      cwd: runtimeDirectory,
       env: {
         ...environment,
         CI: '1',
@@ -824,9 +963,9 @@ function recordValue(value: unknown, label: string): Record<string, unknown> {
   return value as Record<string, unknown>
 }
 
-function validateProfileLock(
+function validateRuntimeLock(
   source: string,
-  plugins: CapabilityLock['plugins'],
+  directPackages: readonly RuntimeDirectPackage[],
 ): void {
   const lock = recordValue(parse(source), 'document')
   if (String(lock.lockfileVersion) !== '9.0') {
@@ -837,16 +976,16 @@ function validateProfileLock(
     throw new Error('Generated pnpm lock must disable automatic peer installation')
   }
   const importers = recordValue(lock.importers, 'importers')
-  const profileImporter = recordValue(importers['.'], 'profile importer')
-  const dependencies = profileImporter.dependencies
-    ? recordValue(profileImporter.dependencies, 'profile dependencies')
+  const runtimeImporter = recordValue(importers['.'], 'runtime importer')
+  const dependencies = runtimeImporter.dependencies
+    ? recordValue(runtimeImporter.dependencies, 'runtime dependencies')
     : {}
-  const expectedPackages = [...new Set(plugins.map((plugin) => plugin.package))].sort(
+  const expectedPackages = [...new Set(directPackages.map((entry) => entry.package))].sort(
     compareText,
   )
   const actualPackages = Object.keys(dependencies).sort(compareText)
   if (canonicalJson(actualPackages) !== canonicalJson(expectedPackages)) {
-    throw new Error('Generated pnpm lock does not contain exactly the profile dependencies')
+    throw new Error('Generated pnpm lock does not contain exactly the runtime dependencies')
   }
 
   const packages = lock.packages ? recordValue(lock.packages, 'packages') : {}
@@ -861,20 +1000,20 @@ function validateProfileLock(
     }
   }
 
-  for (const plugin of plugins) {
+  for (const directPackage of directPackages) {
     const importerEntry = recordValue(
-      dependencies[plugin.package],
-      `dependency ${plugin.package}`,
+      dependencies[directPackage.package],
+      `dependency ${directPackage.package}`,
     )
-    if (importerEntry.specifier !== plugin.version) {
+    if (importerEntry.specifier !== directPackage.version) {
       throw new Error(
-        `Generated pnpm lock changed ${plugin.package} from ${plugin.version}`,
+        `Generated pnpm lock changed ${directPackage.package} from ${directPackage.version}`,
       )
     }
-    const key = `${plugin.package}@${plugin.version}`
+    const key = `${directPackage.package}@${directPackage.version}`
     const packageEntry = recordValue(packages[key], `package ${key}`)
     const resolution = recordValue(packageEntry.resolution, `resolution for ${key}`)
-    if (resolution.integrity !== plugin.integrity) {
+    if (resolution.integrity !== directPackage.integrity) {
       throw new Error(`Generated pnpm lock integrity differs for ${key}`)
     }
   }
@@ -930,6 +1069,14 @@ export async function compileCapabilities(
   const validation = validateEmployeeRecipe(options.recipe)
   if (!validation.ok) {
     throw new Error(`Cannot compile an invalid Employee recipe: ${validation.issues[0]?.message}`)
+  }
+  if (
+    options.recipe.spec.runtime.systemPackages.length > 0 ||
+    options.recipe.spec.runtime.cliPackages.length > 0
+  ) {
+    throw new Error(
+      'Runtime systemPackages and cliPackages are not supported by image compilation yet',
+    )
   }
   const gitExecutable = options.gitExecutable ?? DEFAULT_GIT_EXECUTABLE
   if (!isAbsolute(gitExecutable)) {
@@ -1160,7 +1307,7 @@ export async function compileCapabilities(
       })
     }
 
-    const dependencies = Object.fromEntries(
+    const profileDependencies = Object.fromEntries(
       [...dependencyVersions.entries()].sort(([left], [right]) => compareText(left, right)),
     )
     const runtimeSkillRoot = `/opt/star/${skillRootPath}`
@@ -1201,7 +1348,7 @@ export async function compileCapabilities(
         name: `@star/employee-profile-${options.recipe.metadata.name}`,
         private: true,
         packageManager: `${PACKAGE_MANAGER.package}@${PACKAGE_MANAGER.version}`,
-        dependencies,
+        dependencies: profileDependencies,
         dsh: {
           profile: {
             bundles: ['@deepseek-ai/dsh-base', '@deepseek-ai/dsh-web-app'],
@@ -1211,14 +1358,16 @@ export async function compileCapabilities(
       null,
       2,
     )}\n`
-    const minimumReleaseAgeExclude = [...dependencyVersions.entries()]
+    const profileReleaseAgeExclude = [...dependencyVersions.entries()]
       .sort(([left], [right]) => compareText(left, right))
       .map(([packageName, version]) => `${packageName}@${version}`)
     const profileWorkspace = stringify({
       packages: ['.'],
       nodeLinker: 'hoisted',
       autoInstallPeers: false,
-      ...(minimumReleaseAgeExclude.length > 0 ? { minimumReleaseAgeExclude } : {}),
+      ...(profileReleaseAgeExclude.length > 0
+        ? { minimumReleaseAgeExclude: profileReleaseAgeExclude }
+        : {}),
     })
     const profilePatches: unknown[] = [
       {
@@ -1248,32 +1397,129 @@ export async function compileCapabilities(
       profileWorkspace,
       'utf8',
     )
-    await (options.generateProfileLock ?? generatePnpmProfileLock)({
-      environment: buildEnvironment,
-      profileDirectory,
-      registryUrl,
-    })
-    if ((await readFile(join(profileDirectory, 'package.json'), 'utf8')) !== profileManifest) {
-      throw new Error('Profile lock generation changed package.json')
+
+    const runtimeDependencyVersions = new Map(dependencyVersions)
+    for (const [packageName, { version }] of Object.entries(DSH_RUNTIME_SUPPORT)) {
+      const selectedVersion = runtimeDependencyVersions.get(packageName)
+      if (selectedVersion !== undefined && selectedVersion !== version) {
+        throw new Error(
+          `Runtime package ${packageName} cannot use both ${selectedVersion} and ${version}`,
+        )
+      }
+      runtimeDependencyVersions.set(packageName, version)
     }
-    const generatedWorkspace = await readFile(
-      join(profileDirectory, 'pnpm-workspace.yaml'),
-      'utf8',
+    const selectedHarnessVersion = runtimeDependencyVersions.get(
+      options.recipe.spec.harness.package,
     )
-    if (generatedWorkspace !== profileWorkspace) {
+    if (
+      selectedHarnessVersion !== undefined &&
+      selectedHarnessVersion !== options.recipe.spec.harness.version
+    ) {
       throw new Error(
-        `Profile lock generation changed pnpm-workspace.yaml:\n${generatedWorkspace}`,
+        `Runtime package ${options.recipe.spec.harness.package} cannot use both ${selectedHarnessVersion} and ${options.recipe.spec.harness.version}`,
       )
     }
-    const profileLock = await readFile(join(profileDirectory, 'pnpm-lock.yaml'), 'utf8')
-    validateProfileLock(profileLock, lockedPlugins)
+    runtimeDependencyVersions.set(
+      options.recipe.spec.harness.package,
+      options.recipe.spec.harness.version,
+    )
+    const runtimeDependencies = Object.fromEntries(
+      [...runtimeDependencyVersions.entries()].sort(([left], [right]) =>
+        compareText(left, right),
+      ),
+    )
+    const runtimeManifest = `${JSON.stringify(
+      {
+        name: `@star/employee-runtime-${options.recipe.metadata.name}`,
+        private: true,
+        packageManager: `${PACKAGE_MANAGER.package}@${PACKAGE_MANAGER.version}`,
+        dependencies: runtimeDependencies,
+      },
+      null,
+      2,
+    )}\n`
+    const runtimeReleaseAgeExclude = [...runtimeDependencyVersions.entries()]
+      .sort(([left], [right]) => compareText(left, right))
+      .map(([packageName, version]) => `${packageName}@${version}`)
+    const runtimeWorkspace = stringify({
+      packages: ['.'],
+      nodeLinker: 'hoisted',
+      autoInstallPeers: false,
+      minimumReleaseAgeExclude: runtimeReleaseAgeExclude,
+    })
+    const runtimeDirectory = join(artifact, 'dsh', 'runtime')
+    await mkdir(runtimeDirectory, { recursive: true })
+    await writeFile(join(runtimeDirectory, 'package.json'), runtimeManifest, 'utf8')
+    await writeFile(
+      join(runtimeDirectory, 'pnpm-workspace.yaml'),
+      runtimeWorkspace,
+      'utf8',
+    )
+    const runtimeDirectPackages: RuntimeDirectPackage[] = [
+      {
+        integrity: harnessPackage.metadata.integrity,
+        package: options.recipe.spec.harness.package,
+        version: options.recipe.spec.harness.version,
+      },
+      ...lockedPlugins,
+      ...Object.entries(DSH_RUNTIME_SUPPORT).map(
+        ([packageName, { integrity, version }]) => ({
+          integrity,
+          package: packageName,
+          version,
+        }),
+      ),
+    ]
+    await (options.generateRuntimeLock ?? generatePnpmRuntimeLock)({
+      directPackages: runtimeDirectPackages,
+      environment: buildEnvironment,
+      registryUrl,
+      runtimeDirectory,
+    })
+    if ((await readFile(join(runtimeDirectory, 'package.json'), 'utf8')) !== runtimeManifest) {
+      throw new Error('Runtime lock generation changed package.json')
+    }
+    const generatedWorkspace = await readFile(
+      join(runtimeDirectory, 'pnpm-workspace.yaml'),
+      'utf8',
+    )
+    if (generatedWorkspace !== runtimeWorkspace) {
+      throw new Error(
+        `Runtime lock generation changed pnpm-workspace.yaml:\n${generatedWorkspace}`,
+      )
+    }
+    const runtimeLock = await readFile(join(runtimeDirectory, 'pnpm-lock.yaml'), 'utf8')
+    validateRuntimeLock(runtimeLock, runtimeDirectPackages)
+
+    const packageManagerArtifact = join(artifact, 'dsh', 'build-tools', 'pnpm')
+    await mkdir(dirname(packageManagerArtifact), { recursive: true })
+    await copyBuildToolPackage(await pnpmPackageRoot(), packageManagerArtifact)
+    if (
+      (await toolPackageContentDigest(packageManagerArtifact)) !==
+      PACKAGE_MANAGER.contentDigest
+    ) {
+      throw new Error('Copied pnpm build artifact differs from its locked npm archive')
+    }
+
+    const entrypoint = runtimeEntrypointSource()
+    const dockerfile = dockerfileSource(options.recipe.spec.runtime.baseImage)
+    const imageDirectory = join(artifact, 'image')
+    await mkdir(imageDirectory, { recursive: true })
+    await writeFile(join(imageDirectory, 'entrypoint.mjs'), entrypoint, 'utf8')
+    await writeFile(join(imageDirectory, 'Dockerfile'), dockerfile, 'utf8')
 
     const lock: CapabilityLock = {
       apiVersion: 'star.employee.capabilities/v1alpha1',
       harness: {
         integrity: harnessPackage.metadata.integrity,
         package: options.recipe.spec.harness.package,
+        profile: options.recipe.spec.harness.profile,
         version: options.recipe.spec.harness.version,
+      },
+      image: {
+        base: options.recipe.spec.runtime.baseImage,
+        dockerfileDigest: sha256(dockerfile),
+        entrypointDigest: sha256(entrypoint),
       },
       recipe: {
         apiVersion: options.recipe.apiVersion,
@@ -1299,10 +1545,14 @@ export async function compileCapabilities(
         path: preset.path,
       },
       profile: {
-        lockfileDigest: sha256(profileLock),
         packageManifestDigest: sha256(profileManifest),
         patchDigest: sha256(profilePatch),
         workspaceDigest: sha256(profileWorkspace),
+      },
+      runtime: {
+        lockfileDigest: sha256(runtimeLock),
+        packageManifestDigest: sha256(runtimeManifest),
+        workspaceDigest: sha256(runtimeWorkspace),
       },
     }
     await writeFile(

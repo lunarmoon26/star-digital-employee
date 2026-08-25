@@ -18,7 +18,7 @@ product contract, exact schemas, or accepted architecture decisions.
 
 ## M1 Harness Core
 
-Completed in the capability-compilation slice:
+Completed in the capability-compilation and image slices:
 
 1. Extended the recipe with exact local, Git, and npm Agent Skill sources plus
    exact npm Cordis package entries.
@@ -29,15 +29,21 @@ Completed in the capability-compilation slice:
    Alchemist artifact produce the same selected skill digest.
 4. Derived a content-addressed Star preset from the integrity-verified DSH package
    with one locked skill root, default roots disabled, and watching disabled.
-5. Generated and validated the frozen pnpm v9 profile graph with pinned pnpm,
-   automatic peer installation disabled, exact direct integrity, and integrity for
-   every transitive registry package. The real Harness Alchemist graph passes a
-   frozen offline install from a prefetched store.
+5. Generated and validated one frozen pnpm v9 runtime graph with pinned pnpm,
+   automatic peer installation disabled, explicit DSH support peers, exact direct
+   integrity, and integrity for every transitive registry package.
+6. Emitted a digest-pinned multi-stage Node.js 24 image definition whose final
+   stage excludes package-manager and Git entry points and runs as non-root.
+7. Added idempotent activation that restores only deployment-owned profile and
+   preset inputs while preserving DSH state.
+8. Proved the real Harness Alchemist graph with a frozen offline install and a DSH
+   Web RPC host smoke that blocks non-loopback Node TCP connections, selects the
+   generated preset, and exposes exactly the locked skill catalog.
 
-The next slice adds the runtime boundary needed to prove DeepSeek Harness ownership:
+The next slice adds the supervisor boundary needed to prove DeepSeek Harness ownership:
 
-1. Build a pinned Node.js 24 Harness image and activate generated inputs into a
-   writable DSH home without runtime package-manager access.
+1. Run the generated image under the container-native read-only and no-network
+   topology when a Docker daemon is available.
 2. Implement the bounded Unix-socket bridge as an opt-in DSH bundle.
 3. Create, prompt, observe, cancel, and cold-resume bridge-owned sessions while
    explicitly selecting the generated Star preset.
@@ -62,7 +68,7 @@ Durable channel work starts only after the bridge operation-ID contract is prove
 | Requirement | Implementation | Current evidence | Remaining gate |
 | --- | --- | --- | --- |
 | EMP-001 | Recipe contracts and `star-employee recipe validate` | Unit tests, CLI integration tests, schema freshness check | None for M0 |
-| EMP-002 | In progress | Capability lock schema; local/npm resolver tests; real `skills@1.5.23` adapter; matching exact-Git/npm Harness Alchemist compiles; generated Star preset; validated frozen profile lock; real frozen offline package install | Image assembly, writable activation, and no-network DSH runtime skill/plugin test |
+| EMP-002 | In progress | Capability lock schema; local/npm resolver tests; matching exact-Git/npm Harness Alchemist compiles; generated Star preset and image; explicit frozen runtime closure; idempotent activation test; frozen offline install; outbound-guarded host DSH Web preset and skill RPC smoke | Exact system/CLI package resolution and container-native executable-absence/egress evidence |
 | EMP-003 | Not implemented | DSH source investigation and ADR 0001 | Bridge conformance and Web visibility tests |
 | EMP-004 | Not implemented | ADR 0002 | Kubernetes isolation test |
 | EMP-005 | Not implemented | OpenClaw/Hermes failure-path research | Connector restart and delivery fault tests |

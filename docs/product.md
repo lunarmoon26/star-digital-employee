@@ -116,27 +116,32 @@ state are not deployment inputs.
 The generated DSH preset exposes one content-addressed, read-only skill root with
 `includeDefaultRoots: false` and `watch: false`. Project, home, and
 `~/.agents/skills` content cannot enter an employee session. Exact Cordis packages
-are installed into the generated DSH profile with pinned pnpm and a frozen lock.
-Git, npm, package-manager, and skill-manager operations occur only in a secret-free
-build environment and are unavailable in the running employee.
+are installed with DSH in one generated runtime graph using pinned pnpm and a
+frozen lock. The writable profile links that immutable graph. Git, npm,
+package-manager, and skill-manager operations occur only in a secret-free build
+environment and are unavailable in the running employee.
 
 The Star preset is derived from the `standard` preset packed in the exact locked DSH
 tarball. Compilation changes only its filesystem-skill configuration, writes a
 content-addressed preset ID, and makes that ID the generated profile default. The
-profile workspace disables automatic peer installation. Its pnpm lock must contain
-only the requested direct plugin packages, match their verified tarball integrities,
-and carry registry integrity for every transitive package. Exact reviewed direct
-packages are also pnpm release-age exclusions so a newly published pin cannot cause
-pnpm to rewrite the generated workspace.
+runtime workspace disables automatic peer installation. Its direct dependencies
+are the exact Harness package, requested plugins, and an explicit reviewed set of
+support peers omitted from the published DSH dependency closure. The lock matches
+the reviewed direct-package integrities and carries registry integrity for every
+package. Exact reviewed direct packages are pnpm release-age exclusions so a newly
+published pin cannot cause pnpm to rewrite the generated workspace.
 
 The implemented `star-employee recipe compile <path> --output <directory>` slice
 resolves local, exact Git, and exact public npm skill sources; invokes the pinned
 manager; verifies npm integrity, selected skill output, and packed Cordis exports;
 derives the Star preset from the verified DSH package; and emits
 `capabilities.lock.json`, the content-addressed skill root and preset, exact profile
-inputs, and a validated frozen transitive pnpm lock. Image assembly, frozen profile
-installation into that image, writable DSH activation, and the no-network runtime
-smoke test remain M1 work.
+inputs, a validated frozen transitive runtime lock, and a multi-stage image
+definition. The emitted entrypoint verifies immutable inputs and idempotently
+activates the writable DSH state. A host smoke proves a frozen offline install and
+the exact preset and skill catalog through DSH Web while non-loopback Node TCP
+connections are blocked. Non-empty system and CLI package requests fail compilation
+until their exact image-package contract is implemented.
 
 ### Acceptance Criteria
 
@@ -147,6 +152,45 @@ smoke test remain M1 work.
   digest and profile dependency graph.
 - A runtime smoke test exposes exactly the locked skill names and loads each locked
   Cordis entry without package-manager or network access.
+
+## Harness Image And Activation Contract
+
+Status: Accepted
+
+The recipe selects an OCI base image by a complete repository reference and
+`sha256` manifest digest. Compilation records that immutable reference and emits a
+multi-stage Harness Dockerfile. Its dependency stage installs the frozen runtime
+graph with the integrity-verified pinned pnpm artifact, lifecycle scripts disabled,
+and automatic peer installation disabled. The final stage contains Node.js, the
+locked DSH and Cordis runtime graph, the content-addressed skills and preset, and the
+capability lock. It contains no pnpm, npm, Corepack, Git, apt, or dpkg executable.
+
+Immutable image inputs live below `/opt/star`. DSH state lives below the writable
+`$DSH_HOME`. On every process start, activation verifies the immutable generated
+files, replaces the deployment-owned profile manifest, patch, workspace policy,
+profile `node_modules` link, and selected Star preset from those inputs, then starts
+the recipe's named profile. Activation preserves sessions, settings, credentials,
+and all other DSH-owned state. Repeating activation is idempotent, and changing an
+image replaces only those deployment-owned inputs.
+
+The image runs as a non-root user and expects its root filesystem to be mounted
+read-only with writable mounts for `$DSH_HOME`, the workspace, and platform temporary
+storage. The default command starts DSH Web without opening a browser. An image smoke
+test denies outbound network, waits for DSH Web to finish mounting, selects the
+generated Star preset, and verifies that the resulting session exposes exactly the
+locked Agent Skill names. Reaching Web readiness also proves every locked Cordis row
+resolved and mounted.
+
+### Acceptance Criteria
+
+- Mutable base-image tags fail recipe validation.
+- A frozen install from the emitted runtime lock succeeds without lifecycle scripts
+  and produces the exact DSH version recorded by the capability lock.
+- Two activations produce the same managed files while preserving an unrelated
+  session-state witness.
+- With outbound network denied and package managers absent, DSH Web reaches ready,
+  lists the generated preset as healthy and default, and a session on that preset
+  lists exactly the locked skills.
 
 ## System Acceptance Scenarios
 

@@ -1,9 +1,11 @@
 import { createHash } from 'node:crypto'
+import { execFile } from 'node:child_process'
 import {
   chmod,
   mkdir,
   mkdtemp,
   readFile,
+  readlink,
   rm,
   stat,
   symlink,
@@ -11,16 +13,18 @@ import {
 } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
+import { promisify } from 'node:util'
 import type { EmployeeRecipe } from '@star/employee-contracts'
 import * as tar from 'tar'
-import { stringify } from 'yaml'
+import { parse, stringify } from 'yaml'
 import { afterEach, describe, expect, it } from 'vitest'
 import {
   compileCapabilities,
-  type ProfileLockGenerator,
+  type RuntimeLockGenerator,
 } from '../src/index.js'
 
 const temporaryDirectories: string[] = []
+const execFileAsync = promisify(execFile)
 
 afterEach(async () => {
   await Promise.all(
@@ -64,7 +68,8 @@ function recipe(
       observability: { audit: 'required', contentCapture: false },
       plugins,
       runtime: {
-        baseImage: 'node:24-bookworm-slim',
+        baseImage:
+          'docker.io/library/node:24-bookworm-slim@sha256:3638d9a6fe4030bd716be989438248074489337ba3275657f93595428be4fc03',
         cliPackages: [],
         controlPod: { cpu: '1', memory: '1Gi' },
         systemPackages: [],
@@ -186,14 +191,22 @@ function registryFetch(fixtures: RegistryFixture[]): typeof fetch {
   }) as typeof fetch
 }
 
-function fixtureProfileLock(
+function fixtureRuntimeLock(
   integrities: Record<string, string>,
   autoInstallPeers = false,
-): ProfileLockGenerator {
-  return async ({ profileDirectory }) => {
+): RuntimeLockGenerator {
+  return async ({ directPackages, runtimeDirectory }) => {
     const manifest = JSON.parse(
-      await readFile(join(profileDirectory, 'package.json'), 'utf8'),
+      await readFile(join(runtimeDirectory, 'package.json'), 'utf8'),
     ) as { dependencies: Record<string, string> }
+    const directPackageIntegrities = new Map(
+      directPackages.map((entry) => [entry.package, entry.integrity]),
+    )
+    for (const [name, integrity] of Object.entries(integrities)) {
+      if (directPackageIntegrities.get(name) !== integrity) {
+        throw new Error(`Unexpected direct integrity for ${name}`)
+      }
+    }
     const dependencies = Object.fromEntries(
       Object.entries(manifest.dependencies).map(([name, version]) => [
         name,
@@ -203,11 +216,15 @@ function fixtureProfileLock(
     const packages = Object.fromEntries(
       Object.entries(manifest.dependencies).map(([name, version]) => [
         `${name}@${version}`,
-        { resolution: { integrity: integrities[name] } },
+        {
+          resolution: {
+            integrity: directPackageIntegrities.get(name),
+          },
+        },
       ]),
     )
     await writeFile(
-      join(profileDirectory, 'pnpm-lock.yaml'),
+      join(runtimeDirectory, 'pnpm-lock.yaml'),
       stringify({
         importers: { '.': { dependencies } },
         lockfileVersion: '9.0',
@@ -220,6 +237,21 @@ function fixtureProfileLock(
 }
 
 describe('capability compiler', () => {
+  it('rejects runtime packages until their exact image contract is implemented', async () => {
+    const employee = recipe()
+    employee.spec.runtime.systemPackages = [{ name: 'git' }]
+
+    await expect(
+      compileCapabilities({
+        outputDirectory: join(await temporaryDirectory(), 'output'),
+        recipe: employee,
+        recipePath: 'employee.yaml',
+      }),
+    ).rejects.toThrow(
+      'Runtime systemPackages and cliPackages are not supported by image compilation yet',
+    )
+  })
+
   it('uses the pinned skills CLI and produces a reproducible local skill root', async () => {
     const root = await temporaryDirectory()
     const source = join(root, 'capability')
@@ -228,12 +260,16 @@ describe('capability compiler', () => {
     await writeFile(recipePath, 'fixture\n', 'utf8')
     const dsh = await dshFixture(root)
     const fetcher = registryFetch([dsh])
+    const generateRuntimeLock = fixtureRuntimeLock({
+      '@deepseek-ai/dsh': dsh.integrity,
+    })
     const employee = recipe([
       { name: 'env-report', source: { path: 'capability', type: 'local' } },
     ])
 
     const first = await compileCapabilities({
       fetch: fetcher,
+      generateRuntimeLock,
       outputDirectory: join(root, 'first'),
       recipe: employee,
       recipePath,
@@ -241,6 +277,7 @@ describe('capability compiler', () => {
     })
     const second = await compileCapabilities({
       fetch: fetcher,
+      generateRuntimeLock,
       outputDirectory: join(root, 'second'),
       recipe: employee,
       recipePath,
@@ -249,6 +286,8 @@ describe('capability compiler', () => {
 
     expect(second.lock).toEqual(first.lock)
     expect(first.lock.tools.skillManager).toEqual({
+      contentDigest:
+        'sha256:9bb08d2fa5128acb9914ef5f719fb9f759229fc64da639a2bf6f5a8da42882dd',
       integrity:
         'sha512-+hMNBSi35yfX0sKD+ZcRm9y5or7u313OdkcvrRvJAsAzGCaA8wRTu2OmVdN0KRbk9ybqKby5dijkn6OVvNTUmw==',
       package: 'skills',
@@ -278,9 +317,94 @@ describe('capability compiler', () => {
     ).toContain(
       `includeDefaultRoots: false\n    customSkillDirs:\n      - ${first.lock.skillRoot.runtimePath}\n    watch: false`,
     )
-    expect(
-      await readFile(join(first.outputDirectory, 'dsh/profile/pnpm-lock.yaml'), 'utf8'),
-    ).toContain("lockfileVersion: '9.0'")
+    const runtimeLock = parse(
+      await readFile(join(first.outputDirectory, 'dsh/runtime/pnpm-lock.yaml'), 'utf8'),
+    ) as { lockfileVersion: string }
+    expect(runtimeLock.lockfileVersion).toBe('9.0')
+    const runtimeManifest = JSON.parse(
+      await readFile(join(first.outputDirectory, 'dsh/runtime/package.json'), 'utf8'),
+    ) as { dependencies: Record<string, string> }
+    expect(runtimeManifest.dependencies).toMatchObject({
+      '@deepseek-ai/cordis-plugin-group': '1.0.1',
+      '@deepseek-ai/dsh': '0.1.1-rc.2',
+      '@deepseek-ai/dsh-invariants': '0.1.1-rc.2',
+      '@deepseek-ai/dsh-workflow': '0.1.1-rc.2',
+      react: '18.3.1',
+      'react-dom': '18.3.1',
+    })
+    expect(Object.keys(runtimeManifest.dependencies)).toHaveLength(22)
+    const dockerfile = await readFile(
+      join(first.outputDirectory, 'image/Dockerfile'),
+      'utf8',
+    )
+    expect(dockerfile).toContain(`FROM ${employee.spec.runtime.baseImage}`)
+    expect(dockerfile).toContain('USER node')
+    expect(dockerfile).toContain('rm -f /usr/local/bin/npm')
+
+    const fakeDshRoot = join(
+      first.outputDirectory,
+      'dsh/runtime/node_modules/@deepseek-ai/dsh',
+    )
+    await mkdir(join(fakeDshRoot, 'lib'), { recursive: true })
+    await writeFile(
+      join(fakeDshRoot, 'package.json'),
+      `${JSON.stringify({ name: '@deepseek-ai/dsh', version: '0.1.1-rc.2' })}\n`,
+      'utf8',
+    )
+    await writeFile(join(fakeDshRoot, 'lib/bin.js'), '', 'utf8')
+    const dshHome = join(root, 'dsh-home')
+    const activationEnvironment = {
+      ...process.env,
+      DSH_HOME: dshHome,
+      STAR_RUNTIME_ROOT: first.outputDirectory,
+    }
+    const entrypoint = join(first.outputDirectory, 'image/entrypoint.mjs')
+    const activated = await execFileAsync(process.execPath, [entrypoint, '--activate-only'], {
+      env: activationEnvironment,
+    })
+    expect(JSON.parse(activated.stdout)).toEqual({
+      preset: first.lock.preset.id,
+      profile: employee.spec.harness.profile,
+    })
+    const activatedProfile = join(dshHome, 'profiles', employee.spec.harness.profile)
+    const witness = join(dshHome, 'sessions', 'witness')
+    await mkdir(dirname(witness), { recursive: true })
+    await writeFile(witness, 'preserved\n', 'utf8')
+    await chmod(join(activatedProfile, 'cordis.patch.yml'), 0o644)
+    await writeFile(join(activatedProfile, 'cordis.patch.yml'), 'drifted\n', 'utf8')
+    await execFileAsync(process.execPath, [entrypoint, '--activate-only'], {
+      env: activationEnvironment,
+    })
+    expect(await readFile(witness, 'utf8')).toBe('preserved\n')
+    expect(await readFile(join(activatedProfile, 'cordis.patch.yml'), 'utf8')).toBe(
+      profilePatch,
+    )
+    expect(await readlink(join(activatedProfile, 'node_modules'))).toBe(
+      join(first.outputDirectory, 'dsh/runtime/node_modules'),
+    )
+    const activatedPresetComposition = join(
+      dshHome,
+      '.agent-presets',
+      first.lock.preset.id,
+      'agent.cordis.yml',
+    )
+    expect(await readFile(activatedPresetComposition, 'utf8')).toContain(
+      join(first.outputDirectory, first.lock.skillRoot.path),
+    )
+    expect((await stat(activatedPresetComposition)).mode & 0o777).toBe(0o644)
+
+    const outsideProfile = join(root, 'outside-profile')
+    await rm(activatedProfile, { force: true, recursive: true })
+    await mkdir(outsideProfile)
+    await symlink(outsideProfile, activatedProfile, 'dir')
+    await expect(
+      execFileAsync(process.execPath, [entrypoint, '--activate-only'], {
+        env: activationEnvironment,
+      }),
+    ).rejects.toThrow('managed path must be a directory')
+    await expect(readFile(join(outsideProfile, 'package.json'), 'utf8')).rejects.toMatchObject({
+      code: 'ENOENT',
+    })
   }, 30_000)
 
   it('locks an exact Cordis package and emits its explicit profile entry', async () => {
@@ -295,12 +419,13 @@ describe('capability compiler', () => {
       { exports: { './deepseek': './dist/deepseek.js' } },
     )
     const fetcher = registryFetch([dsh, cordis])
-    const generatedFixtureLock = fixtureProfileLock({
+    const generatedFixtureLock = fixtureRuntimeLock({
+      '@deepseek-ai/dsh': dsh.integrity,
       'fixture-cordis': cordis.integrity,
     })
-    let profileEnvironment: NodeJS.ProcessEnv | undefined
-    const generateProfileLock: ProfileLockGenerator = async (options) => {
-      profileEnvironment = options.environment
+    let runtimeEnvironment: NodeJS.ProcessEnv | undefined
+    const generateRuntimeLock: RuntimeLockGenerator = async (options) => {
+      runtimeEnvironment = options.environment
       await generatedFixtureLock(options)
     }
     const ambientSecretName = 'STAR_COMPILER_TEST_AMBIENT_SECRET'
@@ -311,7 +436,7 @@ describe('capability compiler', () => {
       try {
         return await compileCapabilities({
           fetch: fetcher,
-          generateProfileLock,
+          generateRuntimeLock,
           outputDirectory: join(root, 'output'),
           recipe: recipe([], [
             {
@@ -351,14 +476,17 @@ describe('capability compiler', () => {
     expect(
       await readFile(join(result.outputDirectory, 'dsh/profile/pnpm-workspace.yaml'), 'utf8'),
     ).toContain('minimumReleaseAgeExclude:\n  - fixture-cordis@1.2.3')
-    expect(profileEnvironment).not.toHaveProperty(ambientSecretName)
-    expect(profileEnvironment?.HOME).not.toBe(process.env.HOME)
+    expect(runtimeEnvironment).not.toHaveProperty(ambientSecretName)
+    expect(runtimeEnvironment?.HOME).not.toBe(process.env.HOME)
 
     await expect(
       compileCapabilities({
         fetch: fetcher,
-        generateProfileLock: fixtureProfileLock(
-          { 'fixture-cordis': cordis.integrity },
+        generateRuntimeLock: fixtureRuntimeLock(
+          {
+            '@deepseek-ai/dsh': dsh.integrity,
+            'fixture-cordis': cordis.integrity,
+          },
           true,
         ),
         outputDirectory: join(root, 'automatic-peers'),
@@ -378,7 +506,34 @@ describe('capability compiler', () => {
     await expect(
       compileCapabilities({
         fetch: fetcher,
-        generateProfileLock,
+        generateRuntimeLock: async (options) => {
+          await generatedFixtureLock(options)
+          const lockPath = join(options.runtimeDirectory, 'pnpm-lock.yaml')
+          const lock = parse(await readFile(lockPath, 'utf8')) as {
+            packages: Record<string, { resolution: { integrity: string } }>
+          }
+          lock.packages['react@18.3.1']!.resolution.integrity =
+            `sha512-${Buffer.alloc(64).toString('base64')}`
+          await writeFile(lockPath, stringify(lock), 'utf8')
+        },
+        outputDirectory: join(root, 'changed-support-integrity'),
+        recipe: recipe([], [
+          {
+            entry: 'fixture-cordis/deepseek',
+            id: 'fixture-cordis',
+            package: 'fixture-cordis',
+            version: '1.2.3',
+          },
+        ]),
+        recipePath: join(root, 'employee.yaml'),
+        registryUrl: 'https://registry.example/',
+      }),
+    ).rejects.toThrow('integrity differs for react@18.3.1')
+
+    await expect(
+      compileCapabilities({
+        fetch: fetcher,
+        generateRuntimeLock,
         outputDirectory: join(root, 'missing-entry'),
         recipe: recipe([], [
           {
@@ -409,9 +564,13 @@ describe('capability compiler', () => {
       },
     )
     const fetcher = registryFetch([dsh, skillPackage])
+    const generateRuntimeLock = fixtureRuntimeLock({
+      '@deepseek-ai/dsh': dsh.integrity,
+    })
 
     const result = await compileCapabilities({
       fetch: fetcher,
+      generateRuntimeLock,
       outputDirectory: join(root, 'output'),
       recipe: recipe([
         {
@@ -508,6 +667,9 @@ if (args[0] === 'rev-parse') process.stdout.write(${JSON.stringify(`${revision}\
     )
     await chmod(gitExecutable, 0o755)
     const dsh = await dshFixture(root)
+    const generateRuntimeLock = fixtureRuntimeLock({
+      '@deepseek-ai/dsh': dsh.integrity,
+    })
     const ambientSecretName = 'STAR_COMPILER_TEST_AMBIENT_SECRET'
     const previousAmbientSecret = process.env[ambientSecretName]
     process.env[ambientSecretName] = 'must-not-reach-git'
@@ -516,6 +678,7 @@ if (args[0] === 'rev-parse') process.stdout.write(${JSON.stringify(`${revision}\
       try {
         return await compileCapabilities({
           fetch: registryFetch([dsh]),
+          generateRuntimeLock,
           gitExecutable,
           outputDirectory: join(root, 'output'),
           recipe: recipe([

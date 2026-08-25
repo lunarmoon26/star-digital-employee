@@ -16,6 +16,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Deterministic capability compiler with local, exact-Git, and exact-npm skill
   resolution, canonical locks, content-addressed skill roots, and DSH profile
   inputs.
+- Digest-pinned Harness image generation with a frozen DSH runtime graph,
+  idempotent writable-state activation, and an outbound-guarded DSH Web host smoke.
 
 ### Changed
 - Removed the obsolete capability-migration milestone and legacy Claude marketplace

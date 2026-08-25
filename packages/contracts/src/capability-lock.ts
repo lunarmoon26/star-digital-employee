@@ -9,6 +9,8 @@ const RELATIVE_PATH_PATTERN = '^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$))[^\\\\]+$'
 const SKILL_NAME_PATTERN = '^[a-z0-9]+(?:-[a-z0-9]+)*$'
 const SEMVER_PATTERN =
   '^[0-9]+\\.[0-9]+\\.[0-9]+(?:-[0-9A-Za-z.-]+)?(?:\\+[0-9A-Za-z.-]+)?$'
+const OCI_IMAGE_PATTERN =
+  '^(?:[a-z0-9]+(?:[._-][a-z0-9]+)*(?::[0-9]+)?/)*[a-z0-9]+(?:[._-][a-z0-9]+)*(?::[A-Za-z0-9_][A-Za-z0-9_.-]{0,127})?@sha256:[0-9a-f]{64}$'
 const strictObject = <T extends Record<string, TSchema>>(properties: T) =>
   Type.Object(properties, { additionalProperties: false })
 
@@ -54,6 +56,12 @@ export const CapabilityLockSchema = Type.Object(
       package: Type.Literal('@deepseek-ai/dsh'),
       version: Type.Literal('0.1.1-rc.2'),
       integrity: Integrity,
+      profile: Type.String({ minLength: 1, maxLength: 63, pattern: DNS_LABEL_PATTERN }),
+    }),
+    image: strictObject({
+      base: Type.String({ minLength: 1, maxLength: 512, pattern: OCI_IMAGE_PATTERN }),
+      dockerfileDigest: Digest,
+      entrypointDigest: Digest,
     }),
     tools: strictObject({
       skillManager: strictObject({
@@ -62,6 +70,7 @@ export const CapabilityLockSchema = Type.Object(
         integrity: Type.Literal(
           'sha512-+hMNBSi35yfX0sKD+ZcRm9y5or7u313OdkcvrRvJAsAzGCaA8wRTu2OmVdN0KRbk9ybqKby5dijkn6OVvNTUmw==',
         ),
+        contentDigest: Digest,
       }),
       packageManager: strictObject({
         package: Type.Literal('pnpm'),
@@ -69,6 +78,7 @@ export const CapabilityLockSchema = Type.Object(
         integrity: Type.Literal(
           'sha512-GcyFLBIMcSV2DyRD7mvgyltA+fUFmN4aCaHxd1A+AQ5Xwjx3ZG4B52HeWb+HT7IqM5jDOrlpH8E+uUa28PTWIA==',
         ),
+        contentDigest: Digest,
       }),
     }),
     skills: Type.Array(
@@ -117,7 +127,11 @@ export const CapabilityLockSchema = Type.Object(
       packageManifestDigest: Digest,
       patchDigest: Digest,
       workspaceDigest: Digest,
+    }),
+    runtime: strictObject({
       lockfileDigest: Digest,
+      packageManifestDigest: Digest,
+      workspaceDigest: Digest,
     }),
   },
   {

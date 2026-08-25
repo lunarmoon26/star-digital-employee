@@ -57,7 +57,8 @@ function validRecipe(): EmployeeRecipe {
         },
       ],
       runtime: {
-        baseImage: 'node:24-bookworm-slim',
+        baseImage:
+          'docker.io/library/node:24-bookworm-slim@sha256:3638d9a6fe4030bd716be989438248074489337ba3275657f93595428be4fc03',
         cliPackages: [],
         controlPod: {
           cpu: '1',
@@ -233,6 +234,22 @@ describe('Employee recipe validation', () => {
       expect.objectContaining({
         keyword: 'const',
         path: '/spec/harness/version',
+      }),
+    )
+  })
+
+  it('rejects a mutable runtime base image', () => {
+    const recipe = validRecipe()
+    recipe.spec.runtime.baseImage = 'node:24-bookworm-slim'
+
+    const result = validateEmployeeRecipe(recipe)
+
+    expect(result.ok).toBe(false)
+    if (result.ok) return
+    expect(result.issues).toContainEqual(
+      expect.objectContaining({
+        keyword: 'pattern',
+        path: '/spec/runtime/baseImage',
       }),
     )
   })

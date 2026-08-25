@@ -1,12 +1,13 @@
 # Star Digital Employee Architecture
 
-Status: Mixed. Recipe validation and capability-input compilation are implemented;
-full runtime and deployment sections are accepted target architecture.
+Status: Mixed. Recipe validation, capability compilation, image generation, and
+DSH-state activation are implemented; supervisor and deployment sections are
+accepted target architecture.
 
 Audience: maintainers, platform operators, security reviewers, and connector or
 runtime contributors
 
-Last verified on 2026-08-25 against the reset repository baseline `c271323`,
+Last verified on 2026-08-25 against the capability compiler baseline `90d37ee`,
 DeepSeek Harness `dsh-v0.1.1-rc.2` at `b150a55`, `skills@1.5.23` at
 `435076e`, Harness Alchemist `v0.1.8` at `f195cf4`, Hermes `cd29765`, and
 OpenClaw package `2026.2.24`
@@ -116,17 +117,18 @@ Temporal joins the supervisor boundary after the core durable slice.
    `standard` preset inside the integrity-verified DSH tarball, changes only its
    filesystem-skill row, and content-address the result. Default roots and watching
    are disabled.
-6. Exact Cordis package versions become generated profile dependencies. Each
-   explicit package entry becomes a profile patch row. Generating the frozen pnpm
-   lock records the complete transitive profile graph with automatic peer
-   installation disabled. The compiler verifies requested direct dependencies and
-   registry integrity before accepting that lock.
+6. Exact Cordis package versions become profile dependencies and patch rows. DSH,
+   the selected packages, and explicit support peers form one frozen runtime graph
+   with automatic peer installation disabled. The compiler verifies exact direct
+   versions and registry integrity before accepting that graph.
 7. The capability lock records source and resolved identities, tool versions,
-   integrities, skill-tree digest, profile dependency graph, and generated-file
-   digests. The upstream `skills-lock.json` is discarded as advisory metadata.
-8. M1 activation gate: runtime activation will copy immutable inputs into the
-   writable DSH profile state required for `cordis.yml` and session operation. No
-   resolver or package manager will remain available to the employee.
+   integrities, skill-tree digest, runtime and profile inputs, base image, and
+   generated-file digests. The upstream `skills-lock.json` is discarded as
+   advisory metadata.
+8. The generated multi-stage image installs the runtime graph with build-only pnpm,
+   removes package-manager and Git entry points, and runs the verified entrypoint as
+   a non-root user. Activation restores only managed profile and preset inputs into
+   writable DSH state; resolvers and package managers are unavailable at runtime.
 
 ## Critical Flow: Remote Development
 
@@ -163,11 +165,11 @@ per employee plus shared organization services. The proposed pod contains separa
 Harness, supervisor, connector, and authentication-proxy containers where secret
 or process isolation requires it.
 
-The Harness image uses Node.js 24, a non-root user, read-only root filesystem,
-explicit writable mounts, dropped capabilities, no service-account token, and
-default-deny egress. `@deepseek-ai/dsh` is installed at an exact version during
-image build. Channel credentials are mounted only into connector containers. The
-Harness receives a revocable model-gateway credential bounded to employee, model,
+The Harness image uses a digest-pinned Node.js 24 base, a non-root user, a read-only
+root filesystem, explicit writable mounts, dropped capabilities, no service-account
+token, and default-deny egress. `@deepseek-ai/dsh` is installed at an exact version
+during image build. Channel credentials are mounted only into connector containers.
+The Harness receives a revocable model-gateway credential bounded to employee, model,
 and budget rather than an upstream provider credential.
 
 The image contains the generated profile dependency graph and a read-only skill
@@ -177,6 +179,20 @@ generated `customSkillDirs` root, and `watch: false`. Bridge-created sessions
 explicitly select that preset. The writable DSH home contains runtime settings,
 sessions, and generated `cordis.yml`, but no package manager, source credentials,
 project skills, home skills, or mutable capability source.
+
+Image assembly uses one frozen runtime graph containing the exact DSH package,
+selected Cordis packages, and explicit exact support peers required by the pinned
+DSH release. A verified standalone pnpm artifact exists only in the dependency
+stage; lifecycle scripts and automatic peers are disabled. The final image removes
+JavaScript, Git, and Debian package-manager entry points. Immutable runtime packages,
+skills, preset templates, and lock evidence live under `/opt/star`.
+
+The image entrypoint activates only deployment-owned inputs. It atomically restores
+the named profile's manifest, patch, workspace policy, and immutable `node_modules`
+link under `$DSH_HOME/profiles`, and restores the selected preset under
+`$DSH_HOME/.agent-presets`. DSH continues to own generated `cordis.yml`, settings,
+credentials, and session state. Activation never recursively replaces `$DSH_HOME`
+and is safe to repeat against an existing employee volume.
 
 ## Cross-Cutting Rules
 

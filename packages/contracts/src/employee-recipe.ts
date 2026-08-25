@@ -14,6 +14,8 @@ const SKILL_NAME_PATTERN = '^[a-z0-9]+(?:-[a-z0-9]+)*$'
 const CPU_QUANTITY_PATTERN = '^(?:[1-9][0-9]*m|[1-9][0-9]*(?:\\.[0-9]+)?)$'
 const MEMORY_QUANTITY_PATTERN = '^[1-9][0-9]*(?:Ki|Mi|Gi|Ti)$'
 const MODEL_ROUTE_PATTERN = '^[a-zA-Z0-9._-]+/[a-zA-Z0-9._:/-]+$'
+const OCI_IMAGE_PATTERN =
+  '^(?:[a-z0-9]+(?:[._-][a-z0-9]+)*(?::[0-9]+)?/)*[a-z0-9]+(?:[._-][a-z0-9]+)*(?::[A-Za-z0-9_][A-Za-z0-9_.-]{0,127})?@sha256:[0-9a-f]{64}$'
 
 const strictObject = <T extends Record<string, TSchema>>(properties: T) =>
   Type.Object(properties, { additionalProperties: false })
@@ -154,7 +156,7 @@ export const EmployeeRecipeSchema = Type.Object(
         profile: Reference,
       }),
       runtime: strictObject({
-        baseImage: Type.String({ minLength: 1, maxLength: 512 }),
+        baseImage: Type.String({ minLength: 1, maxLength: 512, pattern: OCI_IMAGE_PATTERN }),
         systemPackages: Type.Array(PackageRequirement, { maxItems: 128 }),
         cliPackages: Type.Array(PackageRequirement, { maxItems: 128 }),
         environment: Type.Optional(RuntimeEnvironment),

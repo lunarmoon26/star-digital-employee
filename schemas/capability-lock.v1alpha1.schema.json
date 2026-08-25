@@ -8,12 +8,14 @@
     "apiVersion",
     "recipe",
     "harness",
+    "image",
     "tools",
     "skills",
     "skillRoot",
     "plugins",
     "preset",
-    "profile"
+    "profile",
+    "runtime"
   ],
   "properties": {
     "apiVersion": {
@@ -51,7 +53,8 @@
       "required": [
         "package",
         "version",
-        "integrity"
+        "integrity",
+        "profile"
       ],
       "properties": {
         "package": {
@@ -64,6 +67,37 @@
         },
         "integrity": {
           "pattern": "^sha512-[A-Za-z0-9+/]{86}==$",
+          "type": "string"
+        },
+        "profile": {
+          "minLength": 1,
+          "maxLength": 63,
+          "pattern": "^[a-z](?:[a-z0-9-]{0,61}[a-z0-9])?$",
+          "type": "string"
+        }
+      }
+    },
+    "image": {
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "base",
+        "dockerfileDigest",
+        "entrypointDigest"
+      ],
+      "properties": {
+        "base": {
+          "minLength": 1,
+          "maxLength": 512,
+          "pattern": "^(?:[a-z0-9]+(?:[._-][a-z0-9]+)*(?::[0-9]+)?/)*[a-z0-9]+(?:[._-][a-z0-9]+)*(?::[A-Za-z0-9_][A-Za-z0-9_.-]{0,127})?@sha256:[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "dockerfileDigest": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "entrypointDigest": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
           "type": "string"
         }
       }
@@ -82,7 +116,8 @@
           "required": [
             "package",
             "version",
-            "integrity"
+            "integrity",
+            "contentDigest"
           ],
           "properties": {
             "package": {
@@ -96,6 +131,10 @@
             "integrity": {
               "const": "sha512-+hMNBSi35yfX0sKD+ZcRm9y5or7u313OdkcvrRvJAsAzGCaA8wRTu2OmVdN0KRbk9ybqKby5dijkn6OVvNTUmw==",
               "type": "string"
+            },
+            "contentDigest": {
+              "pattern": "^sha256:[0-9a-f]{64}$",
+              "type": "string"
             }
           }
         },
@@ -105,7 +144,8 @@
           "required": [
             "package",
             "version",
-            "integrity"
+            "integrity",
+            "contentDigest"
           ],
           "properties": {
             "package": {
@@ -118,6 +158,10 @@
             },
             "integrity": {
               "const": "sha512-GcyFLBIMcSV2DyRD7mvgyltA+fUFmN4aCaHxd1A+AQ5Xwjx3ZG4B52HeWb+HT7IqM5jDOrlpH8E+uUa28PTWIA==",
+              "type": "string"
+            },
+            "contentDigest": {
+              "pattern": "^sha256:[0-9a-f]{64}$",
               "type": "string"
             }
           }
@@ -349,8 +393,7 @@
       "required": [
         "packageManifestDigest",
         "patchDigest",
-        "workspaceDigest",
-        "lockfileDigest"
+        "workspaceDigest"
       ],
       "properties": {
         "packageManifestDigest": {
@@ -364,8 +407,27 @@
         "workspaceDigest": {
           "pattern": "^sha256:[0-9a-f]{64}$",
           "type": "string"
-        },
+        }
+      }
+    },
+    "runtime": {
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "lockfileDigest",
+        "packageManifestDigest",
+        "workspaceDigest"
+      ],
+      "properties": {
         "lockfileDigest": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "packageManifestDigest": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "workspaceDigest": {
           "pattern": "^sha256:[0-9a-f]{64}$",
           "type": "string"
         }
