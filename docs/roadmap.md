@@ -39,12 +39,17 @@ Completed in the capability-compilation and image slices:
 8. Proved the real Harness Alchemist graph with a frozen offline install and a DSH
    Web RPC host smoke that blocks non-loopback Node TCP connections, selects the
    generated preset, and exposes exactly the locked skill catalog.
+9. Built the generated image with Docker and ran it under `--network none`,
+   read-only root, dropped capabilities, no-new-privileges, and non-root. In-container
+   checks proved package-manager and Git executables are absent, DSH Web reaches
+   ready, the locked preset is healthy and default, a session exposes exactly the
+   locked skill, and restart reactivates idempotently. Writable temporary mounts
+   must allow execution because pinned DSH materializes native bindings into
+   `$TMPDIR` before loading them.
 
 The next slice adds the supervisor boundary needed to prove DeepSeek Harness ownership:
 
-1. Run the generated image under the container-native read-only and no-network
-   topology when a Docker daemon is available.
-2. Implement the bounded Unix-socket bridge as an opt-in DSH bundle.
+1. Implement the bounded Unix-socket bridge as an opt-in DSH bundle.
 3. Create, prompt, observe, cancel, and cold-resume bridge-owned sessions while
    explicitly selecting the generated Star preset.
 4. Protect the DSH Web surface with a local development authentication mode and a
@@ -68,7 +73,7 @@ Durable channel work starts only after the bridge operation-ID contract is prove
 | Requirement | Implementation | Current evidence | Remaining gate |
 | --- | --- | --- | --- |
 | EMP-001 | Recipe contracts and `star-employee recipe validate` | Unit tests, CLI integration tests, schema freshness check | None for M0 |
-| EMP-002 | In progress | Capability lock schema; local/npm resolver tests; matching exact-Git/npm Harness Alchemist compiles; generated Star preset and image; explicit frozen runtime closure; idempotent activation test; frozen offline install; outbound-guarded host DSH Web preset and skill RPC smoke | Exact system/CLI package resolution and container-native executable-absence/egress evidence |
+| EMP-002 | In progress | Capability lock schema; local/npm resolver tests; matching exact-Git/npm Harness Alchemist compiles; generated Star preset and image; explicit frozen runtime closure; idempotent activation test; frozen offline install; outbound-guarded host DSH Web RPC smoke; container-native no-network, read-only-root, non-root, executable-absence, preset/session/skill, and restart-reactivation evidence | Exact system/CLI package resolution |
 | EMP-003 | Not implemented | DSH source investigation and ADR 0001 | Bridge conformance and Web visibility tests |
 | EMP-004 | Not implemented | ADR 0002 | Kubernetes isolation test |
 | EMP-005 | Not implemented | OpenClaw/Hermes failure-path research | Connector restart and delivery fault tests |
