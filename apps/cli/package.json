@@ -13,6 +13,7 @@
     "build": "tsup src/bin.ts --format esm --dts --clean"
   },
   "dependencies": {
+    "@star/employee-compiler": "workspace:*",
     "@star/employee-contracts": "workspace:*",
     "commander": "15.0.0",
     "yaml": "2.9.0"

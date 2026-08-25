@@ -44,7 +44,17 @@ spec:
     instructions: ./persona/research-analyst.md
 
   skills:
-    - source: ../../plugins/researcher/skills/research-methodology
+    - name: harness-alchemist
+      source:
+        type: npm
+        package: harness-alchemist
+        version: 0.1.8
+
+  plugins:
+    - id: harness-alchemist
+      package: harness-alchemist
+      version: 0.1.8
+      entry: harness-alchemist/deepseek
 
   connectors:
     slack:

@@ -12,3 +12,4 @@ own rationale and consequences.
 | [0004: Run heavy development in Kubernetes workspaces](0004-kubernetes-development-workspaces.md) | Accepted |
 | [0005: Limit Temporal to supervisory workflows](0005-temporal-supervisory-workflows.md) | Accepted |
 | [0006: Keep operational credentials outside Harness](0006-isolate-operational-credentials.md) | Accepted |
+| [0007: Compile pinned open capability artifacts](0007-compile-pinned-open-capabilities.md) | Accepted |

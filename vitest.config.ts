@@ -4,6 +4,9 @@ import { defineConfig } from 'vitest/config'
 export default defineConfig({
   resolve: {
     alias: {
+      '@star/employee-compiler': fileURLToPath(
+        new URL('./packages/compiler/src/index.ts', import.meta.url),
+      ),
       '@star/employee-contracts': fileURLToPath(
         new URL('./packages/contracts/src/index.ts', import.meta.url),
       ),

@@ -1,3 +1,4 @@
+export { CapabilityLockSchema, type CapabilityLock } from './capability-lock.js'
 export {
   EmployeeRecipeSchema,
   formatRecipeIssues,

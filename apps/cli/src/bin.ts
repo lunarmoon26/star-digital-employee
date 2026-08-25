@@ -3,9 +3,11 @@
 import { readFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
+import { compileCapabilities as compileEmployeeCapabilities } from '@star/employee-compiler'
 import {
   formatRecipeIssues,
   validateEmployeeRecipe,
+  type EmployeeRecipe,
 } from '@star/employee-contracts'
 import { Command, CommanderError } from 'commander'
 import { parse } from 'yaml'
@@ -15,22 +17,30 @@ export interface CliIO {
   stdout: (text: string) => void
 }
 
+export interface CliDependencies {
+  compileCapabilities: typeof compileEmployeeCapabilities
+}
+
 const processIO: CliIO = {
   stderr: (text) => process.stderr.write(text),
   stdout: (text) => process.stdout.write(text),
+}
+
+const processDependencies: CliDependencies = {
+  compileCapabilities: compileEmployeeCapabilities,
 }
 
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error)
 }
 
-async function validateRecipeFile(path: string, io: CliIO): Promise<boolean> {
+async function readRecipeFile(path: string, io: CliIO): Promise<EmployeeRecipe | undefined> {
   let source: string
   try {
     source = await readFile(path, 'utf8')
   } catch (error) {
     io.stderr(`Unable to read recipe "${path}": ${errorMessage(error)}\n`)
-    return false
+    return undefined
   }
 
   let candidate: unknown
@@ -38,22 +48,58 @@ async function validateRecipeFile(path: string, io: CliIO): Promise<boolean> {
     candidate = parse(source)
   } catch (error) {
     io.stderr(`Unable to parse recipe "${path}": ${errorMessage(error)}\n`)
-    return false
+    return undefined
   }
 
   const result = validateEmployeeRecipe(candidate)
   if (!result.ok) {
     io.stderr(`Invalid Employee recipe: ${path}\n${formatRecipeIssues(result.issues)}\n`)
-    return false
+    return undefined
   }
 
+  return result.value
+}
+
+async function validateRecipeFile(path: string, io: CliIO): Promise<boolean> {
+  const recipe = await readRecipeFile(path, io)
+  if (!recipe) return false
+
   io.stdout(
-    `Valid Employee recipe: ${result.value.metadata.name} (${result.value.apiVersion})\n`,
+    `Valid Employee recipe: ${recipe.metadata.name} (${recipe.apiVersion})\n`,
   )
   return true
 }
 
-export async function runCli(argv: string[], io: CliIO = processIO): Promise<number> {
+async function compileRecipeFile(
+  path: string,
+  outputDirectory: string,
+  io: CliIO,
+  dependencies: CliDependencies,
+): Promise<boolean> {
+  const recipe = await readRecipeFile(path, io)
+  if (!recipe) return false
+
+  try {
+    const result = await dependencies.compileCapabilities({
+      outputDirectory,
+      recipe,
+      recipePath: path,
+    })
+    io.stdout(
+      `Compiled capabilities: ${recipe.metadata.name} -> ${result.outputDirectory} (${result.lock.skillRoot.digest})\n`,
+    )
+    return true
+  } catch (error) {
+    io.stderr(`Unable to compile recipe "${path}": ${errorMessage(error)}\n`)
+    return false
+  }
+}
+
+export async function runCli(
+  argv: string[],
+  io: CliIO = processIO,
+  dependencies: CliDependencies = processDependencies,
+): Promise<number> {
   let exitCode = 0
   const program = new Command()
     .name('star-employee')
@@ -73,6 +119,24 @@ export async function runCli(argv: string[], io: CliIO = processIO): Promise<num
     .argument('<path>', 'path to the recipe')
     .action(async (path: string) => {
       if (!(await validateRecipeFile(resolve(path), io))) exitCode = 1
+    })
+
+  recipe
+    .command('compile')
+    .description('Compile locked capability runtime inputs for an Employee recipe')
+    .argument('<path>', 'path to the recipe')
+    .requiredOption('-o, --output <path>', 'new output directory for compiled inputs')
+    .action(async (path: string, options: { output: string }) => {
+      if (
+        !(await compileRecipeFile(
+          resolve(path),
+          resolve(options.output),
+          io,
+          dependencies,
+        ))
+      ) {
+        exitCode = 1
+      }
     })
 
   try {

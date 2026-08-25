@@ -8,10 +8,10 @@ decision records, and unimplemented sequencing belongs to the roadmap.
 
 ## Current Baseline and Problem
 
-The repository at tag `v0.3.0` is a static Claude Code plugin marketplace. Claude
-Code supplies execution, models, tools, state, permissions, and interaction. The
-repository contains no service process, container, durable queue, authenticated
-Web application, or deployment contract.
+The repository implements the strict `Employee` recipe contract, validation CLI,
+and first capability-input compiler. It does not yet contain the complete employee
+lock, runtime image and activation, durable queue, authenticated Web application,
+or deployment controller.
 
 The product needs independently operating employees that process routine work over
 long periods, remain inspectable by a human supervisor, and can temporarily access
@@ -48,7 +48,7 @@ and exposes supervised Web and terminal control surfaces.
 | ID | Status | Requirement |
 | --- | --- | --- |
 | EMP-001 | Implemented | The CLI validates a versioned `Employee` recipe and rejects unknown fields, malformed values, and inline credential fields. |
-| EMP-002 | Accepted | A recipe resolves to an immutable lock containing exact image, Harness, plugin, skill, and system-package identities without containing secret values. |
+| EMP-002 | In progress | A recipe resolves to an immutable lock containing exact image, Harness, Cordis plugin, Agent Skill, build-tool, and system-package identities without containing secret values. |
 | EMP-003 | Accepted | DeepSeek Harness owns model turns, tool execution, skills, sessions, and the direct Web experience behind a narrow supervisor bridge. |
 | EMP-004 | Accepted | One employee runs as one pod trust boundary with dedicated persistent state and workload identity. |
 | EMP-005 | Accepted | Slack and Google Workspace connectors durably accept inbound events before acknowledgement and durably record outbound intent before delivery. |
@@ -75,9 +75,10 @@ strict validation. Runtime environment variables resolve through named non-secre
 configuration references; literal environment values are invalid. `v1alpha1`
 allows only `LOG_LEVEL`, `TZ`, `LANG`, and `NO_COLOR`. The generated JSON Schema
 validates structural constraints. The CLI also validates cross-field profile
-references, tool policy conflicts, and package uniqueness. Runtime resolution of a
-non-secret configuration reference is an M1 evidence gate and is not claimed by
-the current validator.
+references, tool policy conflicts, package uniqueness, immutable-capable skill
+sources, duplicate capability names, credential-free Git URLs, and Cordis package
+entry ownership. Runtime resolution of a non-secret configuration reference is an
+M1 evidence gate and is not claimed by the current validator.
 
 ### Acceptance Criteria
 
@@ -90,6 +91,63 @@ the current validator.
   trace.
 - Given a stale generated JSON Schema, the schema freshness gate fails.
 
+## Capability Compilation Contract
+
+Status: Partially implemented
+
+Each Agent Skill entry selects one kebab-case skill name from exactly one source:
+
+- A recipe-relative local project, locked by canonical tree digest.
+- A credential-free Git repository URL on an operator-approved compiler host and
+  exact 40-character commit, optionally narrowed to a repository subpath.
+- An npm package and exact version, optionally narrowed to a package subpath.
+
+Each Cordis plugin entry selects a unique ID, an exact npm package version, and an
+explicit package entry. A Harness Alchemist project can provide both `skills/`
+directories and a built npm `/deepseek` adapter, but the recipe selects and locks
+these two capability planes independently.
+
+Compilation uses pinned `skills@1.5.23` for Agent Skill discovery and copying. Star
+resolves immutable source evidence before invoking the tool, disables its telemetry,
+validates its output, and writes an independent canonical tree digest to the recipe
+lock. The tool's `skills-lock.json`, floating Git refs, and shared global install
+state are not deployment inputs.
+
+The generated DSH preset exposes one content-addressed, read-only skill root with
+`includeDefaultRoots: false` and `watch: false`. Project, home, and
+`~/.agents/skills` content cannot enter an employee session. Exact Cordis packages
+are installed into the generated DSH profile with pinned pnpm and a frozen lock.
+Git, npm, package-manager, and skill-manager operations occur only in a secret-free
+build environment and are unavailable in the running employee.
+
+The Star preset is derived from the `standard` preset packed in the exact locked DSH
+tarball. Compilation changes only its filesystem-skill configuration, writes a
+content-addressed preset ID, and makes that ID the generated profile default. The
+profile workspace disables automatic peer installation. Its pnpm lock must contain
+only the requested direct plugin packages, match their verified tarball integrities,
+and carry registry integrity for every transitive package. Exact reviewed direct
+packages are also pnpm release-age exclusions so a newly published pin cannot cause
+pnpm to rewrite the generated workspace.
+
+The implemented `star-employee recipe compile <path> --output <directory>` slice
+resolves local, exact Git, and exact public npm skill sources; invokes the pinned
+manager; verifies npm integrity, selected skill output, and packed Cordis exports;
+derives the Star preset from the verified DSH package; and emits
+`capabilities.lock.json`, the content-addressed skill root and preset, exact profile
+inputs, and a validated frozen transitive pnpm lock. Image assembly, frozen profile
+installation into that image, writable DSH activation, and the no-network runtime
+smoke test remain M1 work.
+
+### Acceptance Criteria
+
+- Floating npm versions, non-commit Git revisions, credential-bearing source URLs,
+  duplicate names, malformed skills, symlinks, and unexpected manager output fail
+  compilation.
+- A clean rebuild from the same recipe and lock produces the same canonical skill
+  digest and profile dependency graph.
+- A runtime smoke test exposes exactly the locked skill names and loads each locked
+  Cordis entry without package-manager or network access.
+
 ## System Acceptance Scenarios
 
 | ID | Stimulus | Observable response | Evidence target |
@@ -101,12 +159,12 @@ the current validator.
 | ACC-005 | An external mutation completes. | Audit storage contains actor, task, operation, policy, approval, target, result, trace, and configuration digest. | Audit conformance test |
 | ACC-006 | A supervisor opens the direct Harness portal. | Organization authentication and supervisor authorization are required. | End-to-end authorization test |
 
-## Compatibility and Migration
+## Compatibility Policy
 
-The marketplace release remains available through Git history and existing tags.
-There is no runtime compatibility promise between Claude marketplace manifests and
-the `Employee` recipe. Reusable prompt content is migrated only after review and
-tests identify its Harness-native behavior.
+This reset product has no Claude marketplace compatibility or capability-migration
+obligation. Portable capabilities enter through the accepted Agent Skills and npm
+Cordis contracts. Changes to an accepted recipe field or lock format require an
+explicit migration decision after a release persists that contract.
 
 ## Evidence Map
 

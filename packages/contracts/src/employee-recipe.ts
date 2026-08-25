@@ -6,6 +6,11 @@ const REFERENCE_PATTERN = '^[a-z][a-z0-9-]{0,62}$'
 const ENV_NAME_PATTERN = '^[A-Z_][A-Z0-9_]*$'
 const SEMVER_PATTERN =
   '^[0-9]+\\.[0-9]+\\.[0-9]+(?:-[0-9A-Za-z.-]+)?(?:\\+[0-9A-Za-z.-]+)?$'
+const GIT_COMMIT_PATTERN = '^[0-9a-f]{40}$'
+const NPM_PACKAGE_PATTERN =
+  '^(?:@[a-z0-9][a-z0-9._-]*/)?[a-z0-9][a-z0-9._-]*$'
+const RELATIVE_PATH_PATTERN = '^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$))[^\\\\]+$'
+const SKILL_NAME_PATTERN = '^[a-z0-9]+(?:-[a-z0-9]+)*$'
 const CPU_QUANTITY_PATTERN = '^(?:[1-9][0-9]*m|[1-9][0-9]*(?:\\.[0-9]+)?)$'
 const MEMORY_QUANTITY_PATTERN = '^[1-9][0-9]*(?:Ki|Mi|Gi|Ti)$'
 const MODEL_ROUTE_PATTERN = '^[a-zA-Z0-9._-]+/[a-zA-Z0-9._:/-]+$'
@@ -67,14 +72,58 @@ const RuntimeEnvironment = Type.Object(
   { additionalProperties: false, minProperties: 1 },
 )
 
-const SkillSource = Type.Union([
-  strictObject({
-    source: Type.String({ minLength: 1, maxLength: 1024 }),
+const SkillSource = strictObject({
+  name: Type.String({ minLength: 1, maxLength: 64, pattern: SKILL_NAME_PATTERN }),
+  source: Type.Union([
+    strictObject({
+      type: Type.Literal('local'),
+      path: Type.String({
+        minLength: 1,
+        maxLength: 1024,
+        pattern: RELATIVE_PATH_PATTERN,
+      }),
+    }),
+    strictObject({
+      type: Type.Literal('git'),
+      repository: Type.String({ minLength: 1, maxLength: 2048 }),
+      revision: Type.String({ pattern: GIT_COMMIT_PATTERN }),
+      subpath: Type.Optional(
+        Type.String({
+          minLength: 1,
+          maxLength: 1024,
+          pattern: RELATIVE_PATH_PATTERN,
+        }),
+      ),
+    }),
+    strictObject({
+      type: Type.Literal('npm'),
+      package: Type.String({
+        minLength: 1,
+        maxLength: 214,
+        pattern: NPM_PACKAGE_PATTERN,
+      }),
+      version: Type.String({ pattern: SEMVER_PATTERN }),
+      subpath: Type.Optional(
+        Type.String({
+          minLength: 1,
+          maxLength: 1024,
+          pattern: RELATIVE_PATH_PATTERN,
+        }),
+      ),
+    }),
+  ]),
+})
+
+const CordisPlugin = strictObject({
+  id: Type.String({ minLength: 1, maxLength: 63, pattern: DNS_LABEL_PATTERN }),
+  package: Type.String({
+    minLength: 1,
+    maxLength: 214,
+    pattern: NPM_PACKAGE_PATTERN,
   }),
-  strictObject({
-    package: Type.String({ minLength: 1, maxLength: 214 }),
-  }),
-])
+  version: Type.String({ pattern: SEMVER_PATTERN }),
+  entry: Type.String({ minLength: 1, maxLength: 512 }),
+})
 
 export const EmployeeRecipeSchema = Type.Object(
   {
@@ -100,8 +149,8 @@ export const EmployeeRecipeSchema = Type.Object(
         serviceAccount: Reference,
       }),
       harness: strictObject({
-        package: Type.String({ minLength: 1, maxLength: 214 }),
-        version: Type.String({ pattern: SEMVER_PATTERN }),
+        package: Type.Literal('@deepseek-ai/dsh'),
+        version: Type.Literal('0.1.1-rc.2'),
         profile: Reference,
       }),
       runtime: strictObject({
@@ -129,6 +178,7 @@ export const EmployeeRecipeSchema = Type.Object(
         }),
       ),
       skills: Type.Optional(Type.Array(SkillSource, { maxItems: 128 })),
+      plugins: Type.Optional(Type.Array(CordisPlugin, { maxItems: 128 })),
       connectors: Type.Optional(
         Type.Object(
           {
@@ -267,6 +317,77 @@ function semanticIssues(recipe: EmployeeRecipe): RecipeValidationIssue[] {
         })
       }
       seen.add(packageRequirement.name)
+    }
+  }
+
+  const skillNames = new Set<string>()
+  for (const [index, skill] of (recipe.spec.skills ?? []).entries()) {
+    if (skillNames.has(skill.name)) {
+      issues.push({
+        keyword: 'duplicateSkill',
+        message: `skill "${skill.name}" is declared more than once`,
+        path: '/spec/skills',
+      })
+    }
+    skillNames.add(skill.name)
+
+    if (skill.source.type !== 'git') continue
+    try {
+      const repository = new URL(skill.source.repository)
+      if (
+        repository.protocol !== 'https:' ||
+        repository.username !== '' ||
+        repository.password !== '' ||
+        repository.search !== '' ||
+        repository.hash !== ''
+      ) {
+        throw new Error('unsupported Git repository URL')
+      }
+    } catch {
+      issues.push({
+        keyword: 'gitRepository',
+        message: 'must be a credential-free HTTPS URL without query or fragment',
+        path: `/spec/skills/${index}/source/repository`,
+      })
+    }
+  }
+
+  const pluginIds = new Set<string>()
+  const pluginPackageVersions = new Map<string, string>()
+  for (const [index, plugin] of (recipe.spec.plugins ?? []).entries()) {
+    if (pluginIds.has(plugin.id)) {
+      issues.push({
+        keyword: 'duplicatePlugin',
+        message: `plugin "${plugin.id}" is declared more than once`,
+        path: '/spec/plugins',
+      })
+    }
+    pluginIds.add(plugin.id)
+
+    const existingVersion = pluginPackageVersions.get(plugin.package)
+    if (existingVersion && existingVersion !== plugin.version) {
+      issues.push({
+        keyword: 'pluginVersionConflict',
+        message: `package "${plugin.package}" cannot use both "${existingVersion}" and "${plugin.version}"`,
+        path: `/spec/plugins/${index}/version`,
+      })
+    }
+    pluginPackageVersions.set(plugin.package, plugin.version)
+
+    const entrySuffix = plugin.entry.slice(plugin.package.length)
+    const validSubpath =
+      plugin.entry.startsWith(`${plugin.package}/`) &&
+      entrySuffix.startsWith('/') &&
+      entrySuffix
+        .slice(1)
+        .split('/')
+        .every((part) => part !== '' && part !== '.' && part !== '..')
+    if (plugin.entry !== plugin.package && !validSubpath) {
+      issues.push({
+        keyword: 'pluginEntry',
+        message: `must be "${plugin.package}" or one of its package subpaths`,
+        path: `/spec/plugins/${index}/entry`,
+      })
     }
   }
 

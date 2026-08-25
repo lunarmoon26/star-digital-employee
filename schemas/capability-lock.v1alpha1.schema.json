@@ -1,0 +1,375 @@
+{
+  "$id": "https://star.employee/schemas/capability-lock.v1alpha1.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "title": "Star Digital Employee Capability Lock v1alpha1",
+  "type": "object",
+  "required": [
+    "apiVersion",
+    "recipe",
+    "harness",
+    "tools",
+    "skills",
+    "skillRoot",
+    "plugins",
+    "preset",
+    "profile"
+  ],
+  "properties": {
+    "apiVersion": {
+      "const": "star.employee.capabilities/v1alpha1",
+      "type": "string"
+    },
+    "recipe": {
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "apiVersion",
+        "name",
+        "digest"
+      ],
+      "properties": {
+        "apiVersion": {
+          "const": "star.employee/v1alpha1",
+          "type": "string"
+        },
+        "name": {
+          "minLength": 1,
+          "maxLength": 63,
+          "pattern": "^[a-z](?:[a-z0-9-]{0,61}[a-z0-9])?$",
+          "type": "string"
+        },
+        "digest": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "type": "string"
+        }
+      }
+    },
+    "harness": {
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "package",
+        "version",
+        "integrity"
+      ],
+      "properties": {
+        "package": {
+          "const": "@deepseek-ai/dsh",
+          "type": "string"
+        },
+        "version": {
+          "const": "0.1.1-rc.2",
+          "type": "string"
+        },
+        "integrity": {
+          "pattern": "^sha512-[A-Za-z0-9+/]{86}==$",
+          "type": "string"
+        }
+      }
+    },
+    "tools": {
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "skillManager",
+        "packageManager"
+      ],
+      "properties": {
+        "skillManager": {
+          "additionalProperties": false,
+          "type": "object",
+          "required": [
+            "package",
+            "version",
+            "integrity"
+          ],
+          "properties": {
+            "package": {
+              "const": "skills",
+              "type": "string"
+            },
+            "version": {
+              "const": "1.5.23",
+              "type": "string"
+            },
+            "integrity": {
+              "const": "sha512-+hMNBSi35yfX0sKD+ZcRm9y5or7u313OdkcvrRvJAsAzGCaA8wRTu2OmVdN0KRbk9ybqKby5dijkn6OVvNTUmw==",
+              "type": "string"
+            }
+          }
+        },
+        "packageManager": {
+          "additionalProperties": false,
+          "type": "object",
+          "required": [
+            "package",
+            "version",
+            "integrity"
+          ],
+          "properties": {
+            "package": {
+              "const": "pnpm",
+              "type": "string"
+            },
+            "version": {
+              "const": "11.7.0",
+              "type": "string"
+            },
+            "integrity": {
+              "const": "sha512-GcyFLBIMcSV2DyRD7mvgyltA+fUFmN4aCaHxd1A+AQ5Xwjx3ZG4B52HeWb+HT7IqM5jDOrlpH8E+uUa28PTWIA==",
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "skills": {
+      "maxItems": 128,
+      "type": "array",
+      "items": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "name",
+          "source",
+          "artifactDigest"
+        ],
+        "properties": {
+          "name": {
+            "minLength": 1,
+            "maxLength": 64,
+            "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+            "type": "string"
+          },
+          "source": {
+            "anyOf": [
+              {
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                  "type",
+                  "path",
+                  "treeDigest"
+                ],
+                "properties": {
+                  "type": {
+                    "const": "local",
+                    "type": "string"
+                  },
+                  "path": {
+                    "minLength": 1,
+                    "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$))[^\\\\]+$",
+                    "type": "string"
+                  },
+                  "treeDigest": {
+                    "pattern": "^sha256:[0-9a-f]{64}$",
+                    "type": "string"
+                  }
+                }
+              },
+              {
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                  "type",
+                  "repository",
+                  "revision",
+                  "treeDigest"
+                ],
+                "properties": {
+                  "type": {
+                    "const": "git",
+                    "type": "string"
+                  },
+                  "repository": {
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  "revision": {
+                    "pattern": "^[0-9a-f]{40}$",
+                    "type": "string"
+                  },
+                  "subpath": {
+                    "minLength": 1,
+                    "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$))[^\\\\]+$",
+                    "type": "string"
+                  },
+                  "treeDigest": {
+                    "pattern": "^sha256:[0-9a-f]{64}$",
+                    "type": "string"
+                  }
+                }
+              },
+              {
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                  "type",
+                  "package",
+                  "version",
+                  "integrity",
+                  "treeDigest"
+                ],
+                "properties": {
+                  "type": {
+                    "const": "npm",
+                    "type": "string"
+                  },
+                  "package": {
+                    "pattern": "^(?:@[a-z0-9][a-z0-9._-]*/)?[a-z0-9][a-z0-9._-]*$",
+                    "type": "string"
+                  },
+                  "version": {
+                    "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(?:-[0-9A-Za-z.-]+)?(?:\\+[0-9A-Za-z.-]+)?$",
+                    "type": "string"
+                  },
+                  "subpath": {
+                    "minLength": 1,
+                    "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$))[^\\\\]+$",
+                    "type": "string"
+                  },
+                  "integrity": {
+                    "pattern": "^sha512-[A-Za-z0-9+/]{86}==$",
+                    "type": "string"
+                  },
+                  "treeDigest": {
+                    "pattern": "^sha256:[0-9a-f]{64}$",
+                    "type": "string"
+                  }
+                }
+              }
+            ]
+          },
+          "artifactDigest": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "type": "string"
+          }
+        }
+      }
+    },
+    "skillRoot": {
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "digest",
+        "path",
+        "runtimePath"
+      ],
+      "properties": {
+        "digest": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "path": {
+          "pattern": "^skills/sha256-[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "runtimePath": {
+          "pattern": "^/opt/star/skills/sha256-[0-9a-f]{64}$",
+          "type": "string"
+        }
+      }
+    },
+    "plugins": {
+      "maxItems": 128,
+      "type": "array",
+      "items": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "package",
+          "version",
+          "entry",
+          "integrity"
+        ],
+        "properties": {
+          "id": {
+            "minLength": 1,
+            "maxLength": 63,
+            "pattern": "^[a-z](?:[a-z0-9-]{0,61}[a-z0-9])?$",
+            "type": "string"
+          },
+          "package": {
+            "pattern": "^(?:@[a-z0-9][a-z0-9._-]*/)?[a-z0-9][a-z0-9._-]*$",
+            "type": "string"
+          },
+          "version": {
+            "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(?:-[0-9A-Za-z.-]+)?(?:\\+[0-9A-Za-z.-]+)?$",
+            "type": "string"
+          },
+          "entry": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "integrity": {
+            "pattern": "^sha512-[A-Za-z0-9+/]{86}==$",
+            "type": "string"
+          }
+        }
+      }
+    },
+    "preset": {
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "base",
+        "baseDigest",
+        "digest",
+        "id",
+        "path"
+      ],
+      "properties": {
+        "base": {
+          "const": "standard",
+          "type": "string"
+        },
+        "baseDigest": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "digest": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "id": {
+          "pattern": "^star-[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "path": {
+          "pattern": "^dsh/agent-presets/star-[0-9a-f]{64}$",
+          "type": "string"
+        }
+      }
+    },
+    "profile": {
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "packageManifestDigest",
+        "patchDigest",
+        "workspaceDigest",
+        "lockfileDigest"
+      ],
+      "properties": {
+        "packageManifestDigest": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "patchDigest": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "workspaceDigest": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "lockfileDigest": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "type": "string"
+        }
+      }
+    }
+  }
+}
