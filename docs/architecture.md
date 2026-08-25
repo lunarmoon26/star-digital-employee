@@ -194,6 +194,17 @@ link under `$DSH_HOME/profiles`, and restores the selected preset under
 credentials, and session state. Activation never recursively replaces `$DSH_HOME`
 and is safe to repeat against an existing employee volume.
 
+Verified on 2026-08-25 with Docker Desktop 29.7.2: the generated research-analyst
+image builds from its emitted Dockerfile and runs with `--network none`,
+`--read-only`, `--cap-drop ALL`, `no-new-privileges`, and user `node`. In-container
+checks confirmed npm, pnpm, Corepack, yarn, Git, apt, and dpkg are absent; DSH Web
+reached readiness; the locked preset was listed healthy and default; a session on
+that preset exposed exactly the locked skill; and a container restart reactivated
+idempotently. One mount requirement was discovered: pinned DSH loads native peer
+bindings by materializing them into `$TMPDIR` before `dlopen`, so the writable
+temporary mount must allow execution (`exec`), which default Docker tmpfs options
+omit.
+
 ## Cross-Cutting Rules
 
 - Unknown configuration fields fail validation.

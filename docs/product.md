@@ -179,7 +179,9 @@ storage. The default command starts DSH Web without opening a browser. An image 
 test denies outbound network, waits for DSH Web to finish mounting, selects the
 generated Star preset, and verifies that the resulting session exposes exactly the
 locked Agent Skill names. Reaching Web readiness also proves every locked Cordis row
-resolved and mounted.
+resolved and mounted. Deployment mounts writable temporary storage with execution
+permission because pinned DSH materializes native bindings into temporary storage
+before loading them.
 
 ### Acceptance Criteria
 
@@ -191,6 +193,10 @@ resolved and mounted.
 - With outbound network denied and package managers absent, DSH Web reaches ready,
   lists the generated preset as healthy and default, and a session on that preset
   lists exactly the locked skills.
+- Verified in-container: the generated image runs with no network, a read-only root,
+  dropped capabilities, no-new-privileges, and non-root; package-manager and Git
+  executables are absent; the preset, session, skill catalog, and restart-reactivation
+  checks pass inside that container.
 
 ## System Acceptance Scenarios
 
