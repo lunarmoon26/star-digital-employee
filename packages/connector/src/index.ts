@@ -12,6 +12,16 @@ export {
   type SlackSocketModeClient,
   type SlackWebClient,
 } from './slack.js'
+export {
+  createSlackSocketModeConnector,
+  type SlackSdkConnectorOptions,
+} from './slack-sdk.js'
+export {
+  GmailConnector,
+  gmailMessageToEnvelope,
+  type GmailConnectorOptions,
+  type GmailMessage,
+} from './gmail.js'
 export type {
   ChannelConnector,
   NormalizedPayload,
