@@ -19,10 +19,13 @@ export {
 export {
   GmailConnector,
   createGmailConnectorFromAdc,
+  createGmailConnectorFromOAuth,
   gmailMessageToEnvelope,
+  obtainGmailRefreshToken,
   type GmailAdcConnectorOptions,
   type GmailConnectorOptions,
   type GmailMessage,
+  type GmailOAuthConnectorOptions,
 } from './gmail.js'
 export type {
   ChannelConnector,

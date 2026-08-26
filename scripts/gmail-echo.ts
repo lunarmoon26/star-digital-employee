@@ -21,6 +21,7 @@ try {
 import { DurableLedger, type InboundEnvelope } from '@star/employee-ledger'
 import {
   createGmailConnectorFromAdc,
+  createGmailConnectorFromOAuth,
   optionalField,
   textOf,
 } from '@star/employee-connector'
@@ -30,7 +31,21 @@ const account = process.env.STAR_ACCOUNT ?? 'gmail'
 const ledgerPath = process.env.STAR_LEDGER_PATH ?? '.star/gmail-echo.sqlite'
 
 const ledger = new DurableLedger(ledgerPath)
-const connector = await createGmailConnectorFromAdc({ userId, account })
+const connector = process.env.GMAIL_REFRESH_TOKEN
+  ? createGmailConnectorFromOAuth({
+      clientId: required('GMAIL_CLIENT_ID'),
+      clientSecret: required('GMAIL_CLIENT_SECRET'),
+      refreshToken: process.env.GMAIL_REFRESH_TOKEN,
+      userId,
+      account,
+    })
+  : await createGmailConnectorFromAdc({ userId, account })
+
+function required(name: string): string {
+  const value = process.env[name]
+  if (!value) throw new Error(`set ${name} in .env (run pnpm gmail:auth first)`)
+  return value
+}
 
 async function onEnvelope(envelope: InboundEnvelope): Promise<void> {
   const accepted = ledger.acceptInbound(envelope)

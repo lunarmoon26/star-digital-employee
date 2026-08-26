@@ -5,6 +5,7 @@
  * boundary (ADR 0006).
  */
 
+import { createServer } from 'node:http'
 import { google, type gmail_v1 } from 'googleapis'
 import type { InboundEnvelope } from '@star/employee-ledger'
 import { normalizeEnvelope } from './envelope.js'
@@ -14,6 +15,48 @@ const GMAIL_SCOPES = [
   'https://www.googleapis.com/auth/gmail.modify',
   'https://www.googleapis.com/auth/gmail.send',
 ] as const
+
+/** Run the OAuth consent flow (loopback) and return a Gmail refresh token. */
+export async function obtainGmailRefreshToken(options: {
+  clientId: string
+  clientSecret: string
+  port?: number
+  onAuthorizationUrl?: (url: string) => void
+}): Promise<string> {
+  const port = options.port ?? 8080
+  const redirectUri = `http://127.0.0.1:${port}`
+  const oauth = new google.auth.OAuth2(options.clientId, options.clientSecret, redirectUri)
+  const authUrl = oauth.generateAuthUrl({
+    access_type: 'offline',
+    prompt: 'consent',
+    scope: [...GMAIL_SCOPES],
+  })
+  options.onAuthorizationUrl?.(authUrl)
+
+  const code = await new Promise<string>((resolve, reject) => {
+    const server = createServer((request, response) => {
+      const url = new URL(request.url ?? '/', redirectUri)
+      const received = url.searchParams.get('code')
+      if (received) {
+        response.writeHead(200, { 'content-type': 'text/plain' })
+        response.end('Authorization complete. You can close this tab.\n')
+        server.close()
+        resolve(received)
+      } else {
+        response.writeHead(400, { 'content-type': 'text/plain' })
+        response.end('No authorization code in the URL.\n')
+      }
+    })
+    server.once('error', reject)
+    server.listen(port, '127.0.0.1')
+  })
+
+  const { tokens } = await oauth.getToken(code)
+  if (!tokens.refresh_token) {
+    throw new Error('Google did not return a refresh token. Revoke access and re-run (prompt=consent forces it).')
+  }
+  return tokens.refresh_token
+}
 
 /** The Gmail message fields the connector consumes. */
 export interface GmailMessage {
@@ -61,6 +104,34 @@ export interface GmailAdcConnectorOptions {
   userId?: string
   account: string
   pollIntervalMs?: number
+}
+
+export interface GmailOAuthConnectorOptions {
+  clientId: string
+  clientSecret: string
+  refreshToken: string
+  /** Mailbox to monitor and send from (defaults to the authenticated user). */
+  userId?: string
+  account: string
+  pollIntervalMs?: number
+}
+
+/**
+ * Build a Gmail connector from an OAuth 2.0 client + refresh token (user
+ * consent). Use `scripts/gmail-auth.ts` to obtain the refresh token.
+ */
+export function createGmailConnectorFromOAuth(
+  options: GmailOAuthConnectorOptions,
+): GmailConnector {
+  const auth = new google.auth.OAuth2(options.clientId, options.clientSecret)
+  auth.setCredentials({ refresh_token: options.refreshToken })
+  const gmail = google.gmail({ version: 'v1', auth })
+  return new GmailConnector({
+    gmail,
+    userId: options.userId ?? 'me',
+    account: options.account,
+    ...(options.pollIntervalMs !== undefined ? { pollIntervalMs: options.pollIntervalMs } : {}),
+  })
 }
 
 /**
