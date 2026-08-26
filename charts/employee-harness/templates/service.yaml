@@ -13,6 +13,14 @@ spec:
     app.kubernetes.io/name: employee-harness
     app.kubernetes.io/instance: {{ .Values.employeeName }}
   ports:
+{{- if .Values.webProxy.enabled }}
+    # The authentication-proxy sidecar is the only published port (ADR 0010);
+    # the Harness web port stays loopback-only inside the pod.
+    - name: proxy
+      port: {{ .Values.webProxy.port }}
+      targetPort: proxy
+{{- else }}
     - name: web
       port: {{ .Values.web.port }}
       targetPort: web
+{{- end }}

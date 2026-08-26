@@ -25,6 +25,7 @@ COPY capabilities.lock.json /opt/star/capabilities.lock.json
 COPY dsh/profile /opt/star/dsh/profile
 COPY dsh/agent-presets /opt/star/dsh/agent-presets
 COPY skills /opt/star/skills
+COPY bridge /opt/star/bridge
 COPY image/Dockerfile /opt/star/image/Dockerfile
 COPY image/entrypoint.mjs /opt/star/image/entrypoint.mjs
 
@@ -98,7 +99,10 @@ async function treeDigest(root) {
 }
 
 async function writeManagedFile(source, target, expectedDigest) {
-  const contents = await verifyFile(source, expectedDigest)
+  await writeManagedContents(target, await verifyFile(source, expectedDigest))
+}
+
+async function writeManagedContents(target, contents) {
   await mkdir(dirname(target), { recursive: true })
   const temporary = \`\${target}.star-\${process.pid}\`
   await rm(temporary, { force: true })
@@ -156,12 +160,20 @@ async function activate() {
   if (lock.preset.path !== \`dsh/agent-presets/\${presetId}\`) {
     fail('invalid locked preset path')
   }
+  if (
+    lock.bridge?.path !== 'bridge/plugin.mjs' ||
+    lock.bridge?.runtimePath !== '/opt/star/bridge/plugin.mjs' ||
+    typeof lock.bridge?.artifactDigest !== 'string'
+  ) {
+    fail('invalid locked supervisor bridge')
+  }
 
   await verifyFile(join(immutableRoot, 'dsh/runtime/package.json'), lock.runtime.packageManifestDigest)
   await verifyFile(join(immutableRoot, 'dsh/runtime/pnpm-workspace.yaml'), lock.runtime.workspaceDigest)
   await verifyFile(join(immutableRoot, 'dsh/runtime/pnpm-lock.yaml'), lock.runtime.lockfileDigest)
   await verifyFile(join(immutableRoot, 'image/Dockerfile'), lock.image.dockerfileDigest)
   await verifyFile(fileURLToPath(import.meta.url), lock.image.entrypointDigest)
+  await verifyFile(join(immutableRoot, lock.bridge.path), lock.bridge.artifactDigest)
   const skillRoot = join(immutableRoot, lock.skillRoot.path)
   if (await treeDigest(skillRoot) !== lock.skillRoot.digest) fail('immutable skill root digest differs')
 
@@ -187,11 +199,23 @@ async function activate() {
     join(profileTarget, 'package.json'),
     lock.profile.packageManifestDigest,
   )
-  await writeManagedFile(
+  // The patch is emitted with the deployment bridge path
+  // (/opt/star/bridge/plugin.mjs). When the immutable root lives elsewhere
+  // (the host smoke), rewrite that literal to the actual artifact path so the
+  // loader resolves the compiled bridge module.
+  const patchContents = await verifyFile(
     join(profileSource, 'cordis.patch.yml'),
-    join(profileTarget, 'cordis.patch.yml'),
     lock.profile.patchDigest,
   )
+  let activatedPatch = patchContents.toString('utf8')
+  const bridgeSourcePath = join(immutableRoot, lock.bridge.path)
+  if (bridgeSourcePath !== lock.bridge.runtimePath) {
+    if (!activatedPatch.includes(lock.bridge.runtimePath)) {
+      fail('managed profile patch must contain the locked bridge path exactly once')
+    }
+    activatedPatch = activatedPatch.replaceAll(lock.bridge.runtimePath, bridgeSourcePath)
+  }
+  await writeManagedContents(join(profileTarget, 'cordis.patch.yml'), activatedPatch)
   await writeManagedFile(
     join(profileSource, 'pnpm-workspace.yaml'),
     join(profileTarget, 'pnpm-workspace.yaml'),

@@ -81,6 +81,39 @@ spec:
                 - "fetch('http://127.0.0.1:{{ .Values.web.port }}/').then((r) => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"
             initialDelaySeconds: 5
             periodSeconds: 10
+{{- if .Values.webProxy.enabled }}
+        # Authentication-proxy sidecar (ADR 0010). Sharing the pod network
+        # namespace lets it forward to the Harness loopback bind, which pinned
+        # DSH refuses to move off 127.0.0.1. This is the only published port.
+        - name: web-proxy
+          image: "{{ .Values.webProxy.image.repository }}:{{ .Values.webProxy.image.tag }}{{- if .Values.webProxy.image.digest }}@{{ .Values.webProxy.image.digest }}{{- end }}"
+          imagePullPolicy: {{ .Values.webProxy.image.pullPolicy }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            privileged: false
+            capabilities:
+              drop:
+                - ALL
+          args:
+{{ toYaml .Values.webProxy.args | nindent 12 }}
+          ports:
+            - name: proxy
+              containerPort: {{ .Values.webProxy.port }}
+          env:
+            # The loopback forward target the proxy must preserve. DSH's trust
+            # fence still sees the external Host/Origin; the proxy must not
+            # rewrite Host to 127.0.0.1.
+            - name: STAR_UPSTREAM
+              value: "http://127.0.0.1:{{ .Values.web.port }}"
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi
+{{- end }}
       volumes:
         - name: dsh-home
           persistentVolumeClaim:

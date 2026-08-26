@@ -15,6 +15,7 @@
     "plugins",
     "preset",
     "profile",
+    "bridge",
     "runtime"
   ],
   "properties": {
@@ -406,6 +407,29 @@
         },
         "workspaceDigest": {
           "pattern": "^sha256:[0-9a-f]{64}$",
+          "type": "string"
+        }
+      }
+    },
+    "bridge": {
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "artifactDigest",
+        "path",
+        "runtimePath"
+      ],
+      "properties": {
+        "artifactDigest": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "path": {
+          "pattern": "^bridge/plugin\\.mjs$",
+          "type": "string"
+        },
+        "runtimePath": {
+          "pattern": "^/opt/star/bridge/plugin\\.mjs$",
           "type": "string"
         }
       }

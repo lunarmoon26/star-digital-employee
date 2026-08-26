@@ -128,6 +128,11 @@ export const CapabilityLockSchema = Type.Object(
       patchDigest: Digest,
       workspaceDigest: Digest,
     }),
+    bridge: strictObject({
+      artifactDigest: Digest,
+      path: Type.String({ pattern: '^bridge/plugin\\.mjs$' }),
+      runtimePath: Type.String({ pattern: '^/opt/star/bridge/plugin\\.mjs$' }),
+    }),
     runtime: strictObject({
       lockfileDigest: Digest,
       packageManifestDigest: Digest,

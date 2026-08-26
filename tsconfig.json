@@ -16,6 +16,27 @@
       ],
       "@star/employee-compiler": [
         "./packages/compiler/src/index.ts"
+      ],
+      "@star/employee-bridge": [
+        "./packages/bridge/src/index.ts"
+      ],
+      "@star/employee-ledger": [
+        "./packages/ledger/src/index.ts"
+      ],
+      "@star/employee-supervisor": [
+        "./packages/supervisor/src/index.ts"
+      ],
+      "@star/employee-connector": [
+        "./packages/connector/src/index.ts"
+      ],
+      "@star/employee-gateway": [
+        "./packages/gateway/src/index.ts"
+      ],
+      "@star/employee-workspace": [
+        "./packages/workspace/src/index.ts"
+      ],
+      "@star/employee-workflow": [
+        "./packages/workflow/src/index.ts"
       ]
     },
     "resolveJsonModule": true,

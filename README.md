@@ -11,9 +11,23 @@ The contract foundation is implemented and the Harness core milestone is in
 progress. The current surface validates the `Employee` recipe and compiles its
 pinned Agent Skills and Cordis package entries into a deterministic capability
 lock, frozen DSH runtime graph, generated image, profile, and preset. Idempotent
-activation and an outbound-guarded host DSH Web smoke are implemented. The DeepSeek
-Harness bridge, channels, durable task supervision, remote workspaces, and Temporal
-integration remain tracked in the [roadmap](docs/roadmap.md).
+activation and an outbound-guarded host DSH Web smoke are implemented. The
+supervisor bridge (an owner-only Unix-socket DSH plugin with an operation-id
+contract) is implemented and runtime-proven against a live Harness — including a
+real `session/prompt` turn through a mock model with idempotent replay across a
+DSH restart — and the Web authentication boundary (ADR 0010) is defined and
+encoded in the chart. The durable supervisor ledger (a SQLite inbox/outbox/task/
+effect/approval ledger with operation-id idempotency and `unknown` ambiguity
+semantics), the supervisor state machine (deterministic routing, idempotent
+prompt submission, outbound commitment, crash recovery), the connector host with
+a Slack Socket Mode adapter (commit-before-acknowledge, outbox delivery), and the
+effect gateway (approval-gated external mutations with `unknown` ambiguity), the
+workspace broker contract (typed lease lifecycle with a credential-free provider
+surface), and the Temporal workflow contract (task workflows with idempotent
+Activities) are implemented and unit-tested. Release readiness (MIT license, CI
+gate, signing/SBOM/backup/upgrade docs) is defined. Provider SDK wiring, the
+approvals TUI, the Kubernetes workspace and Temporal worker providers, and the
+signed-release conformance remain tracked in the [roadmap](docs/roadmap.md).
 
 ## Quick Start
 
@@ -101,5 +115,5 @@ See the [architecture](docs/architecture.md) for the complete proposed topology.
 
 ## License
 
-The project is intended to be MIT licensed. A repository license file is tracked as
-a release-readiness item in the roadmap until the copyright owner adds it.
+The project is MIT licensed. See [LICENSE](LICENSE) and the
+[release-readiness contract](docs/release.md).
