@@ -18,6 +18,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   inputs.
 - Digest-pinned Harness image generation with a frozen DSH runtime graph,
   idempotent writable-state activation, and an outbound-guarded DSH Web host smoke.
+- Kubernetes topology decision (ADR 0008) and the hardened `employee-harness`
+  Helm chart with static contract tests for the verified container constraints.
 
 ### Changed
 - Removed the obsolete capability-migration milestone and legacy Claude marketplace

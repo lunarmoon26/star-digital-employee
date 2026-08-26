@@ -1,0 +1,23 @@
+{{- if .Values.namespaceQuota.enabled }}
+# ResourceQuota is namespace-scoped and cannot be selected to one workload, so
+# this quota assumes one employee per namespace (ADR 0002). Sizes derive from
+# the recipe control-pod profile plus headroom for probes and activation.
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: {{ .Values.employeeName }}-quota
+  labels:
+    app.kubernetes.io/name: employee-harness
+    app.kubernetes.io/instance: {{ .Values.employeeName }}
+spec:
+  hard:
+    requests.cpu: {{ .Values.namespaceQuota.requestsCpu | quote }}
+    requests.memory: {{ .Values.namespaceQuota.requestsMemory }}
+    limits.cpu: {{ .Values.namespaceQuota.limitsCpu | quote }}
+    limits.memory: {{ .Values.namespaceQuota.limitsMemory }}
+    persistentvolumeclaims: {{ .Values.namespaceQuota.persistentVolumeClaims | quote }}
+    {{- if .Values.namespaceQuota.requestsStorage }}
+    requests.storage: {{ .Values.namespaceQuota.requestsStorage }}
+    {{- end }}
+    pods: {{ .Values.namespaceQuota.pods | quote }}
+{{- end }}

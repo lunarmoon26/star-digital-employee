@@ -1,0 +1,50 @@
+# Values are rendered from a compiled Employee recipe lock by the compiler's
+# Kubernetes emitter. Every field below maps to an accepted contract:
+# image to the capability lock, resources to the recipe control pod, and security
+# controls to the verified container topology in docs/architecture.md (Deployment).
+
+employeeName: research-analyst
+
+image:
+  # Employee image reference rendered from the platform registry after the
+  # compiled artifact is built and pushed. `digest`, when set, must be the
+  # employee image's own manifest digest. The build-time base image remains
+  # separately pinned by capabilities.lock.json (lock.image.base).
+  repository: docker.io/library/node
+  digest: ""
+  tag: latest
+  # Use Always against the platform registry; use Never only when the image is
+  # preloaded into the target cluster (for example a kind conformance run).
+  pullPolicy: Always
+
+runtime:
+  controlPod:
+    cpu: "1"
+    memory: 2Gi
+  dshHome:
+    size: 20Gi
+    storageClassName: ""
+  workspaceSize: 10Gi
+
+web:
+  port: 3080
+
+# Namespace-scoped guardrails. ResourceQuota cannot select a single workload,
+# so these values assume one employee per namespace (ADR 0002). Sizes cover the
+# control-pod profile plus headroom for probes and activation overhead.
+namespaceQuota:
+  enabled: true
+  pods: "2"
+  requestsCpu: "2"
+  requestsMemory: 4Gi
+  limitsCpu: "2"
+  limitsMemory: 4Gi
+  persistentVolumeClaims: "3"
+  requestsStorage: 40Gi
+  defaultContainerCpu: "500m"
+  defaultContainerMemory: 512Mi
+
+networkPolicy:
+  # Default-deny both directions; explicit allows are added per deployment stage.
+  ingressAllowNamespace: ""
+  egressAllows: []

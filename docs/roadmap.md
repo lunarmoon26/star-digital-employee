@@ -12,7 +12,7 @@ product contract, exact schemas, or accepted architecture decisions.
 | M0 Contract foundation | Implemented | Canonical documentation, initial ADRs, TypeScript workspace, recipe schema, validation CLI | Documented valid and invalid recipe workflows pass `pnpm check`. |
 | M1 Harness core | In progress | Runtime image, locked open capabilities, generated DSH profile and preset, owner-only supervisor bridge, local Docker topology | A supervisor-created ordinary session uses only locked skills and plugins and is visible, resumable, and cancellable in DSH Web. |
 | M2 Durable employee | Proposed | Transactional inbox/outbox/task/effect ledger, Slack Socket Mode, Gmail API connector, approvals, TUI | Restart and fault-injection tests prove accepted messages are not lost and terminal operations are not duplicated. |
-| M3 Kubernetes production | Proposed | Helm deployment, PVC, OIDC proxy, NetworkPolicy, quotas, workspace broker, remote DSH providers | A 64 GiB task runs remotely while the employee pod retains normal limits and credentials remain isolated. |
+| M3 Kubernetes production | In progress | Helm deployment, PVC, OIDC proxy, NetworkPolicy, quotas, workspace broker, remote DSH providers | A 64 GiB task runs remotely while the employee pod retains normal limits and credentials remain isolated. |
 | M4 Temporal workflows | Proposed | Temporal worker, schedules, Signals/Updates, heartbeat Activities, workflow cancellation | A multi-step approved task survives employee pod deletion and replacement. |
 | M5 Release readiness | Proposed | CI, image signing, SBOM, backups, recovery runbooks, license, upgrade policy | Release artifact and disaster-recovery evidence satisfy documented gates. |
 
@@ -58,6 +58,44 @@ The next slice adds the supervisor boundary needed to prove DeepSeek Harness own
 
 Durable channel work starts only after the bridge operation-ID contract is proven.
 
+## M3 Kubernetes Production
+
+Completed in the topology slice:
+
+1. Resolved the deferred controller-versus-Helm decision with ADR 0008: Helm
+   renders employee resources and organization GitOps reconciles them; no custom
+   controller until GitOps cannot express required reconciliation.
+2. Added the `employee-harness` chart encoding only constraints proven against the
+   running image: digest-pinned image reference, one Recreate replica, read-only
+   root filesystem, non-root with dropped capabilities and no privilege
+   escalation, no service-account token, dedicated `$DSH_HOME` and workspace
+   claims, exec-permitting in-memory `/tmp`, ClusterIP-only Web service, and a
+   default-deny ingress/egress NetworkPolicy.
+3. Added static chart-contract tests covering the pinned-image value contract,
+   hardening stanzas, default-deny policy shape, and claim layout.
+
+Remaining M3 gates:
+
+1. Applied the chart on a kind cluster (v1.36 node): render-time conformance with
+   Helm v4.2.4 (`helm lint` clean), image loaded into the cluster, all resources
+   created, rollout healthy, and the PR #2 container checks reproduced in-pod —
+   package-manager and Git executables absent, locked preset healthy and default,
+   session exposes exactly the locked skill, and pod deletion recreates and
+   reactivates idempotently. Conformance caught and fixed two real defects: the
+   values' `image.digest` held the base-image manifest instead of the employee
+   image digest, and HTTP probes cannot reach a pod IP because pinned DSH binds
+   127.0.0.1 only and intentionally rejects `--host 0.0.0.0`; probes are now
+   exec-based against loopback. NetworkPolicy objects apply successfully, though
+   kind's default CNI does not enforce them; enforcement evidence still needs a
+   policy-capable cluster.
+2. Define the OIDC proxy contract in front of DSH Web as an in-pod sidecar: it
+   must share the network namespace and forward to loopback because DSH refuses
+   non-loopback binds by design.
+3. Added namespace-scoped `ResourceQuota` and container `LimitRange` templates
+   with a documented one-employee-per-namespace assumption (ADR 0002) and a
+   disable toggle; render conformance verified for both states with Helm v4.2.4.
+4. Implement the workspace broker contract for remote execution profiles.
+
 ## Deferred Decisions
 
 | Topic | Decision trigger |
@@ -65,7 +103,7 @@ Durable channel work starts only after the bridge operation-ID contract is prove
 | Central versus per-pod connector deployment | Measure connector resource cost and organization account routing during M2. |
 | Memory retrieval implementation | Define provenance, deletion, and access scenarios before choosing a vector or relational index. |
 | Temporal Cloud versus self-hosted | Establish organization compliance, region, traffic, and operational ownership before M4. |
-| Custom Kubernetes controller versus generated Helm resources | Add a controller only when continuous reconciliation cannot be handled by existing GitOps tooling. |
+| Custom Kubernetes controller versus generated Helm resources | Resolved by ADR 0008: Helm-generated resources reconciled by GitOps; revisit only when GitOps cannot express required reconciliation. |
 | A2A support | A real external agent delegation use case supplies identity, authorization, and lifecycle requirements. |
 
 ## Requirement to Evidence
@@ -75,7 +113,7 @@ Durable channel work starts only after the bridge operation-ID contract is prove
 | EMP-001 | Recipe contracts and `star-employee recipe validate` | Unit tests, CLI integration tests, schema freshness check | None for M0 |
 | EMP-002 | In progress | Capability lock schema; local/npm resolver tests; matching exact-Git/npm Harness Alchemist compiles; generated Star preset and image; explicit frozen runtime closure; idempotent activation test; frozen offline install; outbound-guarded host DSH Web RPC smoke; container-native no-network, read-only-root, non-root, executable-absence, preset/session/skill, and restart-reactivation evidence | Exact system/CLI package resolution |
 | EMP-003 | Not implemented | DSH source investigation and ADR 0001 | Bridge conformance and Web visibility tests |
-| EMP-004 | Not implemented | ADR 0002 | Kubernetes isolation test |
+| EMP-004 | Not implemented | ADR 0002; ADR 0008 and hardened employee-harness chart with static contract tests | kind-cluster render/apply isolation test reproducing container checks |
 | EMP-005 | Not implemented | OpenClaw/Hermes failure-path research | Connector restart and delivery fault tests |
 | EMP-006 | Not implemented | ADR 0003 | Operation ledger conformance tests |
 | EMP-007 | Not implemented | Architecture and ADR 0001 | OIDC and role authorization end-to-end test |

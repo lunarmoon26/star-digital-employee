@@ -79,6 +79,7 @@ apps/                 Executable applications, beginning with the CLI
 packages/             Reusable contracts and runtime packages
 schemas/              Generated, distributable machine contracts
 recipes/              Example infrastructure-as-code recipes
+charts/               Kubernetes deployment charts for employee runtimes
 docs/                 Product, architecture, roadmap, and decisions
 ```
 

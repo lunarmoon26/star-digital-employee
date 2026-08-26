@@ -1,0 +1,18 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Values.employeeName }}-harness
+  labels:
+    app.kubernetes.io/name: employee-harness
+    app.kubernetes.io/instance: {{ .Values.employeeName }}
+spec:
+  # ClusterIP only; the Web surface is reached through the organization
+  # authentication proxy, never exposed directly.
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: employee-harness
+    app.kubernetes.io/instance: {{ .Values.employeeName }}
+  ports:
+    - name: web
+      port: {{ .Values.web.port }}
+      targetPort: web
