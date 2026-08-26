@@ -5,10 +5,15 @@
  * boundary (ADR 0006).
  */
 
-import { type gmail_v1 } from 'googleapis'
+import { google, type gmail_v1 } from 'googleapis'
 import type { InboundEnvelope } from '@star/employee-ledger'
 import { normalizeEnvelope } from './envelope.js'
 import type { ChannelConnector, OutboundMessage } from './types.js'
+
+const GMAIL_SCOPES = [
+  'https://www.googleapis.com/auth/gmail.modify',
+  'https://www.googleapis.com/auth/gmail.send',
+] as const
 
 /** The Gmail message fields the connector consumes. */
 export interface GmailMessage {
@@ -49,6 +54,31 @@ export interface GmailConnectorOptions {
   /** Tenant label, for example the Workspace domain. */
   account: string
   pollIntervalMs?: number
+}
+
+export interface GmailAdcConnectorOptions {
+  /** Mailbox to monitor and send from (defaults to the authenticated user). */
+  userId?: string
+  account: string
+  pollIntervalMs?: number
+}
+
+/**
+ * Build a Gmail connector from Application Default Credentials. The ADC refresh
+ * token must carry the Gmail scopes granted by
+ * `gcloud auth application-default login --scopes=...`.
+ */
+export async function createGmailConnectorFromAdc(
+  options: GmailAdcConnectorOptions,
+): Promise<GmailConnector> {
+  const auth = new google.auth.GoogleAuth({ scopes: [...GMAIL_SCOPES] })
+  const gmail = google.gmail({ version: 'v1', auth })
+  return new GmailConnector({
+    gmail,
+    userId: options.userId ?? 'me',
+    account: options.account,
+    ...(options.pollIntervalMs !== undefined ? { pollIntervalMs: options.pollIntervalMs } : {}),
+  })
 }
 
 /** Poll-based Gmail connector with plain-text threaded replies. */

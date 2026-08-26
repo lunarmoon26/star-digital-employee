@@ -18,7 +18,9 @@ export {
 } from './slack-sdk.js'
 export {
   GmailConnector,
+  createGmailConnectorFromAdc,
   gmailMessageToEnvelope,
+  type GmailAdcConnectorOptions,
   type GmailConnectorOptions,
   type GmailMessage,
 } from './gmail.js'

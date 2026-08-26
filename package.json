@@ -13,6 +13,7 @@
     "docs:check": "tsx scripts/check-doc-links.ts",
     "runtime:smoke": "tsx scripts/smoke-harness-runtime.ts",
     "slack:echo": "tsx scripts/slack-echo.ts",
+    "gmail:echo": "tsx scripts/gmail-echo.ts",
     "schema:check": "tsx packages/contracts/scripts/schema.ts --check",
     "schema:generate": "tsx packages/contracts/scripts/schema.ts --write",
     "star-employee": "tsx apps/cli/src/bin.ts",
