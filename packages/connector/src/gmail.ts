@@ -175,24 +175,25 @@ export class GmailConnector implements ChannelConnector {
         q: 'is:unread',
         maxResults: 25,
       })
+      process.stderr.write(`gmail: poll found ${list.data.messages?.length ?? 0} unread message(s)\n`)
       for (const reference of list.data.messages ?? []) {
         if (reference.id === undefined || reference.id === null) continue
         try {
           const fetched = await this.#gmail.users.messages.get({
             userId: this.#userId,
             id: reference.id,
-            format: 'metadata',
-            metadataHeaders: ['From'],
+            format: 'full',
           })
+          process.stderr.write(`gmail: fetched ${fetched.data.id} snippet=${JSON.stringify(fetched.data.snippet ?? '')}\n`)
           const envelope = gmailMessageToEnvelope(fetched.data, this.#account)
           if (envelope !== undefined) await commit(envelope)
-        } catch {
-          // A transient read failure is retried on the next poll.
+        } catch (error) {
+          process.stderr.write(`gmail: get failed for ${reference.id}: ${String(error)}\n`)
         }
       }
     }
     await poll()
-    this.#timer = setInterval(() => { void poll().catch(() => {}) }, this.#pollIntervalMs)
+    this.#timer = setInterval(() => { void poll().catch((error: unknown) => process.stderr.write(`gmail: poll failed: ${String(error)}\n`)) }, this.#pollIntervalMs)
   }
 
   async deliver(message: OutboundMessage): Promise<{ providerMessageId: string } | { ambiguous: true }> {
@@ -202,8 +203,10 @@ export class GmailConnector implements ChannelConnector {
         requestBody: { raw: buildEmailRaw(this.#userId, message.recipient, message.text, message.threadId) },
       })
       if (response.data.id === undefined || response.data.id === null) return { ambiguous: true }
+      process.stderr.write(`gmail: sent reply to ${message.recipient} (id ${response.data.id})\n`)
       return { providerMessageId: response.data.id }
-    } catch {
+    } catch (error) {
+      process.stderr.write(`gmail: send failed to ${message.recipient}: ${String(error)}\n`)
       return { ambiguous: true }
     }
   }

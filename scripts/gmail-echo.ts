@@ -49,7 +49,10 @@ function required(name: string): string {
 
 async function onEnvelope(envelope: InboundEnvelope): Promise<void> {
   const accepted = ledger.acceptInbound(envelope)
-  if (!accepted.created) return
+  if (!accepted.created) {
+    process.stderr.write(`echo: skipped duplicate ${envelope.operationId}\n`)
+    return
+  }
   const text = textOf(envelope.payload)
   const replyTo = optionalField(envelope.payload, 'replyTo') ?? envelope.sender ?? 'unknown'
   const threadId = optionalField(envelope.payload, 'threadId')
@@ -60,6 +63,7 @@ async function onEnvelope(envelope: InboundEnvelope): Promise<void> {
     recipient: replyTo,
     payload: { text: `echo: ${text}`, ...(threadId !== undefined ? { threadId } : {}) },
   })
+  process.stderr.write(`echo: committed ${envelope.operationId} -> reply to ${replyTo}\n`)
 }
 
 async function drainOutbox(): Promise<void> {
