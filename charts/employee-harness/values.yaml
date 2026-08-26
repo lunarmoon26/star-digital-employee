@@ -29,6 +29,24 @@ runtime:
 web:
   port: 3080
 
+# In-pod authentication-proxy sidecar (ADR 0010). The sidecar shares the pod
+# network namespace and is the only published port; the Harness container stays
+# loopback-only. Enable for local development (bearer mode) or production
+# (OIDC). The proxy image is deployment-provided; it must terminate TLS/identity
+# and forward to the injected STAR_UPSTREAM loopback target.
+webProxy:
+  enabled: false
+  image:
+    repository: ghcr.io/oauth2-proxy/oauth2-proxy
+    digest: ""
+    tag: v7.6.0
+    pullPolicy: IfNotPresent
+  # Published proxy port; the Service selects this instead of web.port.
+  port: 4180
+  # Extra proxy arguments; the loopback forward target is injected as
+  # STAR_UPSTREAM and must be preserved as the upstream.
+  args: []
+
 # Namespace-scoped guardrails. ResourceQuota cannot select a single workload,
 # so these values assume one employee per namespace (ADR 0002). Sizes cover the
 # control-pod profile plus headroom for probes and activation overhead.

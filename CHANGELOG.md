@@ -20,6 +20,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   idempotent writable-state activation, and an outbound-guarded DSH Web host smoke.
 - Kubernetes topology decision (ADR 0008) and the hardened `employee-harness`
   Helm chart with static contract tests for the verified container constraints.
+- Supervisor bridge (ADR 0009): a self-contained DSH host plugin exposing an
+  owner-only Unix socket with an operation-id contract, ownership registry, and
+  idempotency ledger; the compiler emits it into the immutable tree and records
+  its digest in the capability lock.
+- Web authentication boundary (ADR 0010): an in-pod authentication-proxy sidecar
+  contract for the loopback-bound DSH Web surface, encoded in the chart with a
+  local-dev bearer mode and a production OIDC mode.
+- Durable supervisor ledger (`@star/employee-ledger`): a SQLite inbox/outbox/task/
+  effect/approval ledger with operation-id idempotency, ambiguous-outcome
+  `unknown` semantics, and restart-safe commit boundaries (ADR 0003).
+- Supervisor state machine (`@star/employee-supervisor`): deterministic routing
+  of accepted envelopes to one bridge-owned DSH session, idempotent prompt
+  submission, outbound-obligation commitment from assistant output, and
+  crash-recovery reconciliation.
+- Connector host and Slack connector (`@star/employee-connector`): commit-before-
+  acknowledge inbound normalization, outbox-drain delivery with ambiguous-outcome
+  handling, and a credential-isolated, SDK-agnostic Slack Socket Mode adapter.
+- Effect gateway (`@star/employee-gateway`): records external mutations before
+  dispatch, gates approval-required targets, and settles effects with `unknown`
+  ambiguity semantics and idempotent replay.
+- Workspace broker contract (`@star/employee-workspace`, ADR 0011): a typed lease
+  lifecycle and credential-free remote filesystem/subprocess surface with
+  lease-request validation.
+- Temporal workflow contract (`@star/employee-workflow`, ADR 0012): task
+  workflows over the ledger with idempotent Activities, approval Signals/Updates,
+  and effect-specific retry policy.
+- Release readiness (ADR 0013): MIT license, CI gate, and `docs/release.md` with
+  cosign signing, syft SBOM, backup/recovery runbooks, and the upgrade policy.
 
 ### Changed
 - Removed the obsolete capability-migration milestone and legacy Claude marketplace

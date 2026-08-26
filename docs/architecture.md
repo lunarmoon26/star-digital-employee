@@ -209,7 +209,14 @@ and the container checks from the Docker evidence reproduce in-pod, including
 idempotent reactivation after pod deletion. Pinned DSH binds DSH Web to 127.0.0.1
 only and rejects `--host 0.0.0.0` by design because the Web surface is
 code-execution-equivalent; the authentication proxy must therefore run as an
-in-pod sidecar sharing the network namespace and forwarding to loopback.
+in-pod sidecar sharing the network namespace and forwarding to loopback (ADR
+[0010](decisions/0010-web-authentication-boundary.md)). The sidecar is the only
+published port. It terminates TLS and enforces OIDC (or a local-dev bearer
+token), forwards `POST /api/*` and static `GET`s with `Content-Type:
+application/json` preserved, upgrades the `/api/events.mux` and `/api/events.host`
+WebSockets, and preserves the external `Host` authority, which DSH's trust fence
+requires to equal the request `Origin`. DSH ignores `X-Forwarded-*`, so the proxy
+supplies those only for its own logs and policy.
 
 One mount requirement was discovered: pinned DSH loads native peer
 bindings by materializing them into `$TMPDIR` before `dlopen`, so the writable
@@ -248,6 +255,12 @@ omit.
 - [0005: Limit Temporal to supervisory workflows](decisions/0005-temporal-supervisory-workflows.md)
 - [0006: Keep operational credentials outside Harness](decisions/0006-isolate-operational-credentials.md)
 - [0007: Compile pinned open capability artifacts](decisions/0007-compile-pinned-open-capabilities.md)
+- [0008: Generate Kubernetes resources with Helm before any controller](decisions/0008-kubernetes-generated-resources.md)
+- [0009: Supervisor bridge protocol and operation-ID contract](decisions/0009-supervisor-bridge-protocol.md)
+- [0010: Protect the DSH Web surface with an authentication proxy](decisions/0010-web-authentication-boundary.md)
+- [0011: Workspace broker contract](decisions/0011-workspace-broker-contract.md)
+- [0012: Temporal supervisory workflow boundary](decisions/0012-temporal-supervisory-workflow-boundary.md)
+- [0013: Release readiness gates](decisions/0013-release-readiness.md)
 
 ## Risks
 

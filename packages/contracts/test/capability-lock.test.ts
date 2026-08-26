@@ -19,6 +19,11 @@ function validLock(): CapabilityLock {
       dockerfileDigest: digest,
       entrypointDigest: digest,
     },
+    bridge: {
+      artifactDigest: digest,
+      path: 'bridge/plugin.mjs',
+      runtimePath: '/opt/star/bridge/plugin.mjs',
+    },
     plugins: [
       {
         entry: 'harness-alchemist/deepseek',

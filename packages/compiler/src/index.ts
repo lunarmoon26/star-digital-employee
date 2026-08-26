@@ -22,7 +22,7 @@ import {
   type EmployeeRecipe,
 } from '@star/employee-contracts'
 import * as tar from 'tar'
-import { parse, stringify } from 'yaml'
+import { parse, Scalar, stringify } from 'yaml'
 import { dockerfileSource, runtimeEntrypointSource } from './image.js'
 
 const SKILL_MANAGER = {
@@ -201,6 +201,17 @@ const DEFAULT_GIT_EXECUTABLE =
 const MAX_NPM_TARBALL_BYTES = 100 * 1024 * 1024
 const MAX_NPM_EXTRACTED_BYTES = 512 * 1024 * 1024
 const MAX_NPM_ARCHIVE_ENTRIES = 100_000
+const BRIDGE_ARTIFACT_PATH = 'bridge/plugin.mjs' as const
+const BRIDGE_RUNTIME_PATH = '/opt/star/bridge/plugin.mjs' as const
+const BRIDGE_PLUGIN_ID = 'supervisor-bridge' as const
+const BRIDGE_CONFIG_LIMITS = {
+  maxRequestBytes: 65_536,
+  maxResponseBytes: 1_048_576,
+  maxTextBytes: 65_536,
+  maxHistoryMessages: 20,
+  maxObservedEvents: 512,
+  maxOperationRecords: 4_096,
+} as const
 const require = createRequire(import.meta.url)
 
 type RecipeSkill = NonNullable<EmployeeRecipe['spec']['skills']>[number]
@@ -233,6 +244,7 @@ interface LockedToolPackage {
 
 export interface CompileCapabilitiesOptions {
   allowedGitHosts?: readonly string[]
+  bridgePluginSource?: string
   fetch?: Fetch
   generateRuntimeLock?: RuntimeLockGenerator
   gitExecutable?: string
@@ -266,6 +278,43 @@ export type RuntimeLockGenerator = (
 
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error)
+}
+
+/** Read the compiled, self-contained bridge plugin module. */
+async function resolveBridgePluginSource(override?: string): Promise<string> {
+  if (override !== undefined) {
+    if (override.trim() === '') throw new Error('Bridge plugin source must not be empty')
+    return override
+  }
+  const modulePath = require.resolve('@star/employee-bridge/plugin')
+  return await readFile(modulePath, 'utf8')
+}
+
+/** Wrap a `!!js` loader expression as a tagged YAML scalar. */
+function jsScalar(expression: string): Scalar {
+  const scalar = new Scalar(expression)
+  scalar.tag = 'tag:yaml.org,2002:js'
+  return scalar
+}
+
+/** Emit the bridge host row for the generated profile patch. */
+function bridgePatchEntry(presetId: string): Record<string, unknown> {
+  return {
+    insert: [
+      {
+        id: BRIDGE_PLUGIN_ID,
+        name: BRIDGE_RUNTIME_PATH,
+        config: {
+          socketPath: jsScalar("dshHomePath('star-bridge/socket')"),
+          tokenFile: jsScalar("dshHomePath('star-bridge/token')"),
+          registryFile: jsScalar("dshHomePath('star-bridge/sessions.json')"),
+          operationLogFile: jsScalar("dshHomePath('star-bridge/operations.jsonl')"),
+          presetId,
+          ...BRIDGE_CONFIG_LIMITS,
+        },
+      },
+    ],
+  }
 }
 
 async function pathExists(path: string): Promise<boolean> {
@@ -1343,6 +1392,14 @@ export async function compileCapabilities(
     await chmod(join(presetDirectory, 'agent.cordis.yml'), 0o644)
     await chmod(join(presetDirectory, 'preset.yml'), 0o644)
 
+    const bridgePluginSource = await resolveBridgePluginSource(options.bridgePluginSource)
+    const bridgeArtifactDigest = sha256(bridgePluginSource)
+    const bridgeDirectory = join(artifact, 'bridge')
+    await mkdir(bridgeDirectory, { recursive: true })
+    await writeFile(join(bridgeDirectory, 'plugin.mjs'), bridgePluginSource, 'utf8')
+    await chmod(bridgeDirectory, 0o755)
+    await chmod(join(bridgeDirectory, 'plugin.mjs'), 0o444)
+
     const profileManifest = `${JSON.stringify(
       {
         name: `@star/employee-profile-${options.recipe.metadata.name}`,
@@ -1387,6 +1444,7 @@ export async function compileCapabilities(
         })),
       })
     }
+    profilePatches.push(bridgePatchEntry(preset.id))
     const profilePatch = stringify(profilePatches)
     const profileDirectory = join(artifact, 'dsh', 'profile')
     await mkdir(profileDirectory, { recursive: true })
@@ -1548,6 +1606,11 @@ export async function compileCapabilities(
         packageManifestDigest: sha256(profileManifest),
         patchDigest: sha256(profilePatch),
         workspaceDigest: sha256(profileWorkspace),
+      },
+      bridge: {
+        artifactDigest: bridgeArtifactDigest,
+        path: BRIDGE_ARTIFACT_PATH,
+        runtimePath: BRIDGE_RUNTIME_PATH,
       },
       runtime: {
         lockfileDigest: sha256(runtimeLock),

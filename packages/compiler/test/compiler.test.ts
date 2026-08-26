@@ -19,9 +19,16 @@ import * as tar from 'tar'
 import { parse, stringify } from 'yaml'
 import { afterEach, describe, expect, it } from 'vitest'
 import {
-  compileCapabilities,
+  compileCapabilities as compileCapabilitiesRaw,
   type RuntimeLockGenerator,
 } from '../src/index.js'
+
+// The compiler reads the compiled bridge plugin from the built package at
+// production compile time; tests inject a deterministic fixture so they stay
+// independent of build order.
+const BRIDGE_FIXTURE = '// star-supervisor-bridge fixture\n'
+const compileCapabilities: typeof compileCapabilitiesRaw = (options) =>
+  compileCapabilitiesRaw({ ...options, bridgePluginSource: BRIDGE_FIXTURE })
 
 const temporaryDirectories: string[] = []
 const execFileAsync = promisify(execFile)
@@ -309,6 +316,17 @@ describe('capability compiler', () => {
       'utf8',
     )
     expect(profilePatch).toContain(`default: ${first.lock.preset.id}`)
+    expect(profilePatch).toContain('id: supervisor-bridge')
+    expect(profilePatch).toContain('name: /opt/star/bridge/plugin.mjs')
+    expect(profilePatch).toContain(`presetId: ${first.lock.preset.id}`)
+    expect(
+      await readFile(join(first.outputDirectory, 'bridge/plugin.mjs'), 'utf8'),
+    ).toBe(BRIDGE_FIXTURE)
+    expect(first.lock.bridge).toEqual({
+      artifactDigest: `sha256:${createHash('sha256').update(BRIDGE_FIXTURE).digest('hex')}`,
+      path: 'bridge/plugin.mjs',
+      runtimePath: '/opt/star/bridge/plugin.mjs',
+    })
     expect(
       await readFile(
         join(first.outputDirectory, first.lock.preset.path, 'agent.cordis.yml'),
@@ -377,7 +395,10 @@ describe('capability compiler', () => {
     })
     expect(await readFile(witness, 'utf8')).toBe('preserved\n')
     expect(await readFile(join(activatedProfile, 'cordis.patch.yml'), 'utf8')).toBe(
-      profilePatch,
+      profilePatch.replaceAll(
+        '/opt/star/bridge/plugin.mjs',
+        join(first.outputDirectory, 'bridge/plugin.mjs'),
+      ),
     )
     expect(await readlink(join(activatedProfile, 'node_modules'))).toBe(
       join(first.outputDirectory, 'dsh/runtime/node_modules'),

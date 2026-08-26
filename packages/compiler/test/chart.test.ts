@@ -115,4 +115,33 @@ describe('employee-harness chart source', () => {
     expect(limitRange).toContain('default:')
     expect(limitRange).toContain('defaultRequest:')
   })
+
+  it('encodes the authentication-proxy sidecar contract behind the loopback web surface', async () => {
+    const deployment = await readFile(join(chartRoot, 'templates/deployment.yaml'), 'utf8')
+    // The sidecar is a second container in the same pod (shared network
+    // namespace) and forwards to the Harness loopback bind.
+    expect(deployment).toContain('- name: web-proxy')
+    expect(deployment).toContain('name: proxy')
+    expect(deployment).toContain('name: STAR_UPSTREAM')
+    expect(deployment).toContain('http://127.0.0.1:{{ .Values.web.port }}')
+    expect(deployment).toContain('readOnlyRootFilesystem: true')
+    expect(deployment).toContain('drop:')
+    expect(deployment).toContain('- ALL')
+
+    const service = await readFile(join(chartRoot, 'templates/service.yaml'), 'utf8')
+    // The proxy is the only published port; the Harness web port stays inside
+    // the pod. Both branches are expressed so the render stays valid.
+    expect(service).toContain('name: proxy')
+    expect(service).toContain('targetPort: proxy')
+    expect(service).toContain('targetPort: web')
+
+    const values = parse(await readFile(join(chartRoot, 'values.yaml'), 'utf8')) as {
+      webProxy: { enabled: boolean; port: number; image: { repository: string } }
+    }
+    // Disabled by default so the existing loopback-only conformance run still
+    // applies without pulling a proxy image; production enables it.
+    expect(values.webProxy.enabled).toBe(false)
+    expect(values.webProxy.port).toBe(4180)
+    expect(values.webProxy.image.repository).toContain('oauth2-proxy')
+  })
 })
