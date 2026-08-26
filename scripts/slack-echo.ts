@@ -5,9 +5,20 @@
  * the outbox pump delivers it back to the same channel/thread.
  *
  * Usage:
- *   SLACK_APP_TOKEN=xapp-... SLACK_BOT_TOKEN=xoxb-... \
- *   STAR_ACCOUNT=my-workspace pnpm tsx scripts/slack-echo.ts
+ *   cp .env.example .env   # then fill in the tokens
+ *   pnpm slack:echo
+ *
+ * Or export the tokens directly:
+ *   SLACK_APP_TOKEN=xapp-... SLACK_BOT_TOKEN=xoxb-... pnpm slack:echo
  */
+
+// Load .env from the repository root (Node 24 native); optional when the tokens
+// are already exported in the environment.
+try {
+  process.loadEnvFile()
+} catch {
+  // No .env file — fall back to already-exported environment variables.
+}
 
 import { DurableLedger, type InboundEnvelope } from '@star/employee-ledger'
 import {
