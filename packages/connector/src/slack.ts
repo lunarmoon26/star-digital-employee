@@ -9,9 +9,11 @@ import type { InboundEnvelope } from '@star/employee-ledger'
 import { normalizeEnvelope } from './envelope.js'
 import type { ChannelConnector, OutboundMessage } from './types.js'
 
-/** The subset of a Slack `message` event the connector consumes. */
+/** The subset of a Slack `message`/`app_mention` event the connector consumes. */
 export interface SlackMessageEvent {
   type: string
+  subtype?: string
+  bot_id?: string
   channel?: string
   user?: string
   thread_ts?: string
@@ -35,9 +37,12 @@ export interface SlackWebClient {
   postMessage(input: { channel: string; text: string; thread_ts?: string }): Promise<{ ts: string }>
 }
 
-/** Normalize one Slack message event into a canonical envelope. */
+/** Normalize one Slack message/mention event into a canonical envelope. */
 export function slackEventToEnvelope(event: SlackMessageEvent, account: string): InboundEnvelope | undefined {
-  if (event.type !== 'message') return undefined
+  if (event.type !== 'message' && event.type !== 'app_mention') return undefined
+  // Ignore bot messages, edits, and other subtypes so the connector never
+  // echoes its own replies or re-processes message_changed/deleted events.
+  if (event.subtype !== undefined || event.bot_id !== undefined) return undefined
   const text = event.text
   if (typeof text !== 'string' || text === '') return undefined
   const providerEventId = event.client_msg_id ?? event.ts ?? ''
@@ -68,11 +73,13 @@ export class SlackSocketModeConnector implements ChannelConnector {
   ) {}
 
   async connect(commit: (envelope: InboundEnvelope) => Promise<void> | void): Promise<void> {
-    this.socket.on('slack_event', async ({ ack, event }) => {
-      const envelope = slackEventToEnvelope(event, this.account)
-      if (envelope !== undefined) await commit(envelope)
-      await ack()
-    })
+    for (const eventName of ['message', 'app_mention']) {
+      this.socket.on(eventName, async ({ ack, event }) => {
+        const envelope = slackEventToEnvelope(event, this.account)
+        if (envelope !== undefined) await commit(envelope)
+        await ack()
+      })
+    }
     await this.socket.start()
   }
 

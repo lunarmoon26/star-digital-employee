@@ -137,12 +137,15 @@ Completed in the durable-ledger slice (ADR 0003):
    throwing dispatch resolves to `unknown`, never `completed`. Unit tests prove
    auto-dispatch, approval gating, rejection, ambiguity, and idempotent replay.
 
+7. Wired the real Slack (`@slack/socket-mode` + `@slack/web-api`) and Gmail
+   (`googleapis`) SDKs into the connector contract: `createSlackSocketModeConnector`
+   and `GmailConnector` (OAuth, poll + threaded send), with a live Slack echo
+   script (`pnpm slack:echo`) and `.env.example`. Remaining is the approvals TUI.
+
 Remaining M2 gates:
 
-7. Wire the real Slack (`@slack/socket-mode` + `@slack/web-api`) and Gmail
-   (`googleapis`) SDK adapters into the connector contract with credential
-   mounts, and render the approvals TUI over the gateway's programmatic API.
-8. Fault-injection tests over every commit, dispatch, delivery, and
+8. Exercise the live Slack echo loop against the created workspaces, then
+   fault-injection tests over every commit, dispatch, delivery, and
    acknowledgement boundary in the running employee.
 
 ## M3 Kubernetes Production

@@ -11,13 +11,13 @@ class FakeSocket implements SlackSocketModeClient {
   readonly order: string[] = []
   ackCount = 0
   started = false
-  #handler: ((payload: { ack: () => Promise<void>; event: SlackMessageEvent }) => void) | undefined
+  readonly #handlers = new Map<string, (payload: { ack: () => Promise<void>; event: SlackMessageEvent }) => void>()
 
   on(
-    _event: string,
+    event: string,
     handler: (payload: { ack: () => Promise<void>; event: SlackMessageEvent }) => void,
   ): void {
-    this.#handler = handler
+    this.#handlers.set(event, handler)
   }
 
   async start(): Promise<void> {
@@ -27,7 +27,7 @@ class FakeSocket implements SlackSocketModeClient {
   async disconnect(): Promise<void> {}
 
   async receive(event: SlackMessageEvent): Promise<void> {
-    await this.#handler?.({
+    await this.#handlers.get(event.type)?.({
       ack: async () => {
         this.order.push('ack')
         this.ackCount += 1
@@ -69,9 +69,23 @@ describe('slack event normalization', () => {
     })
   })
 
-  it('skips non-message and empty events', () => {
-    expect(slackEventToEnvelope({ type: 'app_mention', channel: 'C1', text: 'hi' }, 'acct-1')).toBeUndefined()
+  it('skips empty, subtype, and bot events to avoid echoing itself', () => {
     expect(slackEventToEnvelope({ type: 'message', channel: 'C1', text: '' }, 'acct-1')).toBeUndefined()
+    expect(slackEventToEnvelope({ type: 'message', channel: 'C1', text: 'hi', subtype: 'bot_message' }, 'acct-1')).toBeUndefined()
+    expect(slackEventToEnvelope({ type: 'message', channel: 'C1', text: 'hi', bot_id: 'B1' }, 'acct-1')).toBeUndefined()
+    expect(slackEventToEnvelope({ type: 'reaction_added', channel: 'C1', text: 'hi' }, 'acct-1')).toBeUndefined()
+  })
+
+  it('normalizes an app_mention like a message', () => {
+    const envelope = slackEventToEnvelope({
+      type: 'app_mention',
+      channel: 'C1',
+      user: 'U1',
+      ts: '1700000000.000200',
+      text: '<@BOT> hello',
+      client_msg_id: 'cm-2',
+    }, 'acct-1')
+    expect(envelope?.operationId).toBe('slack:acct-1:cm-2')
   })
 })
 

@@ -1,0 +1,238 @@
+/**
+ * Gmail connector (googleapis + OAuth client). It polls one mailbox, normalizes
+ * messages into canonical envelopes, and sends plain-text replies with thread
+ * correlation. The OAuth client is injected so credentials stay at the process
+ * boundary (ADR 0006).
+ */
+
+import { createServer } from 'node:http'
+import { google, type gmail_v1 } from 'googleapis'
+import type { InboundEnvelope } from '@star/employee-ledger'
+import { normalizeEnvelope } from './envelope.js'
+import type { ChannelConnector, OutboundMessage } from './types.js'
+
+const GMAIL_SCOPES = [
+  'https://www.googleapis.com/auth/gmail.modify',
+  'https://www.googleapis.com/auth/gmail.send',
+] as const
+
+/** Run the OAuth consent flow (loopback) and return a Gmail refresh token. */
+export async function obtainGmailRefreshToken(options: {
+  clientId: string
+  clientSecret: string
+  port?: number
+  onAuthorizationUrl?: (url: string) => void
+}): Promise<string> {
+  const port = options.port ?? 8080
+  const redirectUri = `http://127.0.0.1:${port}`
+  const oauth = new google.auth.OAuth2(options.clientId, options.clientSecret, redirectUri)
+  const authUrl = oauth.generateAuthUrl({
+    access_type: 'offline',
+    prompt: 'consent',
+    scope: [...GMAIL_SCOPES],
+  })
+  options.onAuthorizationUrl?.(authUrl)
+
+  const code = await new Promise<string>((resolve, reject) => {
+    const server = createServer((request, response) => {
+      const url = new URL(request.url ?? '/', redirectUri)
+      const received = url.searchParams.get('code')
+      if (received) {
+        response.writeHead(200, { 'content-type': 'text/plain' })
+        response.end('Authorization complete. You can close this tab.\n')
+        server.close()
+        resolve(received)
+      } else {
+        response.writeHead(400, { 'content-type': 'text/plain' })
+        response.end('No authorization code in the URL.\n')
+      }
+    })
+    server.once('error', reject)
+    server.listen(port, '127.0.0.1')
+  })
+
+  const { tokens } = await oauth.getToken(code)
+  if (!tokens.refresh_token) {
+    throw new Error('Google did not return a refresh token. Revoke access and re-run (prompt=consent forces it).')
+  }
+  return tokens.refresh_token
+}
+
+/** The Gmail message fields the connector consumes. */
+export interface GmailMessage {
+  id?: string | null
+  threadId?: string | null
+  snippet?: string | null
+  payload?: {
+    headers?: { name?: string | null; value?: string | null }[] | null
+  } | null
+}
+
+/** Normalize one Gmail message into a canonical envelope (reply-to = From). */
+export function gmailMessageToEnvelope(
+  message: GmailMessage,
+  account: string,
+): InboundEnvelope | undefined {
+  if (typeof message.id !== 'string' || message.id === '') return undefined
+  const from = headerValue(message.payload?.headers, 'From')
+  const text = message.snippet ?? ''
+  if (text === '') return undefined
+  const thread = message.threadId ?? undefined
+  return normalizeEnvelope({
+    channel: 'gmail',
+    account,
+    providerEventId: message.id,
+    text,
+    ...(thread !== undefined ? { thread } : {}),
+    ...(from !== undefined ? { sender: from } : {}),
+    ...(from !== undefined ? { replyTo: from } : {}),
+    ...(thread !== undefined ? { threadId: thread } : {}),
+  })
+}
+
+export interface GmailConnectorOptions {
+  gmail: gmail_v1.Gmail
+  /** Mailbox to monitor and send from (an email address or `me`). */
+  userId: string
+  /** Tenant label, for example the Workspace domain. */
+  account: string
+  pollIntervalMs?: number
+}
+
+export interface GmailAdcConnectorOptions {
+  /** Mailbox to monitor and send from (defaults to the authenticated user). */
+  userId?: string
+  account: string
+  pollIntervalMs?: number
+}
+
+export interface GmailOAuthConnectorOptions {
+  clientId: string
+  clientSecret: string
+  refreshToken: string
+  /** Mailbox to monitor and send from (defaults to the authenticated user). */
+  userId?: string
+  account: string
+  pollIntervalMs?: number
+}
+
+/**
+ * Build a Gmail connector from an OAuth 2.0 client + refresh token (user
+ * consent). Use `scripts/gmail-auth.ts` to obtain the refresh token.
+ */
+export function createGmailConnectorFromOAuth(
+  options: GmailOAuthConnectorOptions,
+): GmailConnector {
+  const auth = new google.auth.OAuth2(options.clientId, options.clientSecret)
+  auth.setCredentials({ refresh_token: options.refreshToken })
+  const gmail = google.gmail({ version: 'v1', auth })
+  return new GmailConnector({
+    gmail,
+    userId: options.userId ?? 'me',
+    account: options.account,
+    ...(options.pollIntervalMs !== undefined ? { pollIntervalMs: options.pollIntervalMs } : {}),
+  })
+}
+
+/**
+ * Build a Gmail connector from Application Default Credentials. The ADC refresh
+ * token must carry the Gmail scopes granted by
+ * `gcloud auth application-default login --scopes=...`.
+ */
+export async function createGmailConnectorFromAdc(
+  options: GmailAdcConnectorOptions,
+): Promise<GmailConnector> {
+  const auth = new google.auth.GoogleAuth({ scopes: [...GMAIL_SCOPES] })
+  const gmail = google.gmail({ version: 'v1', auth })
+  return new GmailConnector({
+    gmail,
+    userId: options.userId ?? 'me',
+    account: options.account,
+    ...(options.pollIntervalMs !== undefined ? { pollIntervalMs: options.pollIntervalMs } : {}),
+  })
+}
+
+/** Poll-based Gmail connector with plain-text threaded replies. */
+export class GmailConnector implements ChannelConnector {
+  readonly channel = 'gmail'
+  readonly #gmail: gmail_v1.Gmail
+  readonly #userId: string
+  readonly #account: string
+  readonly #pollIntervalMs: number
+  #timer: NodeJS.Timeout | undefined
+
+  constructor(options: GmailConnectorOptions) {
+    this.#gmail = options.gmail
+    this.#userId = options.userId
+    this.#account = options.account
+    this.#pollIntervalMs = options.pollIntervalMs ?? 60_000
+  }
+
+  async connect(commit: (envelope: InboundEnvelope) => Promise<void> | void): Promise<void> {
+    const poll = async (): Promise<void> => {
+      const list = await this.#gmail.users.messages.list({
+        userId: this.#userId,
+        q: 'is:unread',
+        maxResults: 25,
+      })
+      process.stderr.write(`gmail: poll found ${list.data.messages?.length ?? 0} unread message(s)\n`)
+      for (const reference of list.data.messages ?? []) {
+        if (reference.id === undefined || reference.id === null) continue
+        try {
+          const fetched = await this.#gmail.users.messages.get({
+            userId: this.#userId,
+            id: reference.id,
+            format: 'full',
+          })
+          process.stderr.write(`gmail: fetched ${fetched.data.id} snippet=${JSON.stringify(fetched.data.snippet ?? '')}\n`)
+          const envelope = gmailMessageToEnvelope(fetched.data, this.#account)
+          if (envelope !== undefined) await commit(envelope)
+        } catch (error) {
+          process.stderr.write(`gmail: get failed for ${reference.id}: ${String(error)}\n`)
+        }
+      }
+    }
+    await poll()
+    this.#timer = setInterval(() => { void poll().catch((error: unknown) => process.stderr.write(`gmail: poll failed: ${String(error)}\n`)) }, this.#pollIntervalMs)
+  }
+
+  async deliver(message: OutboundMessage): Promise<{ providerMessageId: string } | { ambiguous: true }> {
+    try {
+      const response = await this.#gmail.users.messages.send({
+        userId: this.#userId,
+        requestBody: { raw: buildEmailRaw(this.#userId, message.recipient, message.text, message.threadId) },
+      })
+      if (response.data.id === undefined || response.data.id === null) return { ambiguous: true }
+      process.stderr.write(`gmail: sent reply to ${message.recipient} (id ${response.data.id})\n`)
+      return { providerMessageId: response.data.id }
+    } catch (error) {
+      process.stderr.write(`gmail: send failed to ${message.recipient}: ${String(error)}\n`)
+      return { ambiguous: true }
+    }
+  }
+
+  async disconnect(): Promise<void> {
+    if (this.#timer !== undefined) clearInterval(this.#timer)
+  }
+}
+
+function headerValue(
+  headers: { name?: string | null; value?: string | null }[] | null | undefined,
+  name: string,
+): string | undefined {
+  return headers?.find((header) => header.name?.toLowerCase() === name.toLowerCase())?.value ?? undefined
+}
+
+/** Build a base64url MIME email with thread correlation headers. */
+function buildEmailRaw(from: string, to: string, text: string, threadId?: string): string {
+  const headers = [
+    `From: ${from}`,
+    `To: ${to}`,
+    'Subject: Re: message',
+    ...(threadId !== undefined ? [`In-Reply-To: <${threadId}>`, `References: <${threadId}>`] : []),
+    'Content-Type: text/plain; charset="UTF-8"',
+    '',
+    text,
+  ]
+  return Buffer.from(headers.join('\r\n'), 'utf8').toString('base64url')
+}

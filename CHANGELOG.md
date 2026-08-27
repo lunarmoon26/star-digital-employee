@@ -37,6 +37,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Connector host and Slack connector (`@star/employee-connector`): commit-before-
   acknowledge inbound normalization, outbox-drain delivery with ambiguous-outcome
   handling, and a credential-isolated, SDK-agnostic Slack Socket Mode adapter.
+- Real Slack and Gmail SDK adapters (`createSlackSocketModeConnector`,
+  `GmailConnector`) plus a live Slack echo script (`pnpm slack:echo`) and
+  `.env.example`.
 - Effect gateway (`@star/employee-gateway`): records external mutations before
   dispatch, gates approval-required targets, and settles effects with `unknown`
   ambiguity semantics and idempotent replay.
