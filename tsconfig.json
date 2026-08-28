@@ -37,6 +37,9 @@
       ],
       "@star/employee-workflow": [
         "./packages/workflow/src/index.ts"
+      ],
+      "@star/employee-verifier": [
+        "./packages/verifier/src/index.ts"
       ]
     },
     "resolveJsonModule": true,

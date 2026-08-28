@@ -103,6 +103,8 @@ importers:
         specifier: workspace:*
         version: link:../ledger
 
+  packages/verifier: {}
+
   packages/workflow: {}
 
   packages/workspace: {}

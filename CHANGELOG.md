@@ -51,6 +51,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   and effect-specific retry policy.
 - Release readiness (ADR 0013): MIT license, CI gate, and `docs/release.md` with
   cosign signing, syft SBOM, backup/recovery runbooks, and the upgrade policy.
+- Outcome verification and escalation (`@star/employee-verifier`, ADR 0014): a
+  typed `Verifier` contract over task criteria and evidence plus `decideNext`
+  escalation policy.
 
 ### Changed
 - Removed the obsolete capability-migration milestone and legacy Claude marketplace

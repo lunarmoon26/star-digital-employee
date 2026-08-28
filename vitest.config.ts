@@ -31,6 +31,9 @@ export default defineConfig({
       '@star/employee-workflow': fileURLToPath(
         new URL('./packages/workflow/src/index.ts', import.meta.url),
       ),
+      '@star/employee-verifier': fileURLToPath(
+        new URL('./packages/verifier/src/index.ts', import.meta.url),
+      ),
     },
   },
   test: {
