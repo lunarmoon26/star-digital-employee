@@ -21,6 +21,7 @@ import type {
   OutboundObligation,
   OutboxRow,
   TaskRow,
+  VerificationRecord,
 } from './types.js'
 
 const MAX_OPERATION_ID_BYTES = 128
@@ -105,6 +106,15 @@ interface ApprovalDatabaseRow {
   approver: string | null
   decided_at: number | null
   requested_at: number
+}
+
+interface VerificationDatabaseRow {
+  verification_id: number
+  task_operation_id: string
+  attempt: number
+  verdict: VerificationRecord['verdict']
+  reason: string | null
+  verified_at: number
 }
 
 export class DurableLedger {
@@ -218,6 +228,55 @@ export class DurableLedger {
         .prepare(`SELECT * FROM inbox WHERE status IN ('accepted', 'routed') ORDER BY received_at`)
         .all() as unknown as InboxDatabaseRow[]
     ).map(mapInbox)
+  }
+
+  /** Record one outcome-verification attempt (ADR 0014). */
+  recordVerification(
+    taskOperationId: string,
+    attempt: number,
+    verdict: VerificationRecord['verdict'],
+    reason?: string,
+  ): VerificationRecord {
+    assertOperationId(taskOperationId)
+    if (!Number.isSafeInteger(attempt) || attempt < 1) throw new Error('ledger: verification attempt must be a positive safe integer')
+    const result = this.#db
+      .prepare(
+        `INSERT INTO verifications (task_operation_id, attempt, verdict, reason, verified_at)
+         VALUES (?, ?, ?, ?, ?)`,
+      )
+      .run(taskOperationId, attempt, verdict, reason ?? null, Date.now())
+    return {
+      verificationId: Number(result.lastInsertRowid),
+      taskOperationId,
+      attempt,
+      verdict,
+      reason: reason ?? null,
+      verifiedAt: Date.now(),
+    }
+  }
+
+  /** List verification attempts for one task, oldest first. */
+  verificationAttempts(taskOperationId: string): VerificationRecord[] {
+    assertOperationId(taskOperationId)
+    return (
+      this.#db
+        .prepare(`SELECT * FROM verifications WHERE task_operation_id = ? ORDER BY attempt`)
+        .all(taskOperationId) as unknown as VerificationDatabaseRow[]
+    ).map(mapVerification)
+  }
+
+  /** Park an envelope awaiting retry so reconcile does not reprocess it. */
+  markInboxVerifying(operationId: string): void {
+    assertOperationId(operationId)
+    this.#db.prepare(`UPDATE inbox SET status = 'verifying' WHERE operation_id = ?`).run(operationId)
+    this.#db.prepare(`UPDATE tasks SET status = 'verifying', updated_at = ? WHERE operation_id = ?`).run(Date.now(), operationId)
+  }
+
+  /** Mark an envelope as needing a human decision (escalation). */
+  markInboxNeedsHuman(operationId: string): void {
+    assertOperationId(operationId)
+    this.#db.prepare(`UPDATE inbox SET status = 'needs-human' WHERE operation_id = ?`).run(operationId)
+    this.#db.prepare(`UPDATE tasks SET status = 'needs-human', updated_at = ? WHERE operation_id = ?`).run(Date.now(), operationId)
   }
 
   /** Read the durable route assignment for a deterministic routing key. */
@@ -503,6 +562,17 @@ function mapApproval(row: ApprovalDatabaseRow): ApprovalRow {
     approver: row.approver,
     decidedAt: row.decided_at,
     requestedAt: row.requested_at,
+  }
+}
+
+function mapVerification(row: VerificationDatabaseRow): VerificationRecord {
+  return {
+    verificationId: row.verification_id,
+    taskOperationId: row.task_operation_id,
+    attempt: row.attempt,
+    verdict: row.verdict,
+    reason: row.reason,
+    verifiedAt: row.verified_at,
   }
 }
 

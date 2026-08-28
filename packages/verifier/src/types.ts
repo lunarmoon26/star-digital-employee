@@ -8,6 +8,8 @@
 export interface VerificationContext {
   /** Canonical task operation id (ledger `tasks.operation_id`). */
   taskOperationId: string
+  /** Original task text the agent was asked to perform. */
+  taskText?: string
   /** Success criteria; absent means "the agent stopped without error". */
   criteria: readonly string[]
   /** Collected assistant output and recorded effect/delivery outcomes. */

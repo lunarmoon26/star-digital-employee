@@ -18,4 +18,6 @@ export type {
   OutboxStatus,
   TaskRow,
   TaskStatus,
+  VerificationRecord,
+  VerificationVerdict,
 } from './types.js'

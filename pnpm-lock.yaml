@@ -102,6 +102,9 @@ importers:
       '@star/employee-ledger':
         specifier: workspace:*
         version: link:../ledger
+      '@star/employee-verifier':
+        specifier: workspace:*
+        version: link:../verifier
 
   packages/verifier: {}
 

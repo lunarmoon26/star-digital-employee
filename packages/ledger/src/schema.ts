@@ -77,4 +77,15 @@ CREATE TABLE IF NOT EXISTS routes (
   route_key TEXT PRIMARY KEY,
   session_id TEXT NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS verifications (
+  verification_id INTEGER PRIMARY KEY AUTOINCREMENT,
+  task_operation_id TEXT NOT NULL,
+  attempt INTEGER NOT NULL,
+  verdict TEXT NOT NULL,
+  reason TEXT,
+  verified_at INTEGER NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_verifications_task ON verifications(task_operation_id, attempt);
 `

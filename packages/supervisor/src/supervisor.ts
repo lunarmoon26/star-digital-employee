@@ -7,16 +7,28 @@
  */
 
 import type { DurableLedger, InboundEnvelope } from '@star/employee-ledger'
+import {
+  decideNext,
+  type EscalationPolicy,
+  type Verifier,
+  type VerificationContext,
+} from '@star/employee-verifier'
 import { canonicalRouteKey } from './routing.js'
 import type { BridgeApi } from './bridge-api.js'
 
 export interface SupervisorOptions {
   /** Working directory handed to every bridge-created session. */
   cwd: string
+  /** Optional outcome verifier; absent means "the agent stopped without error". */
+  verifier?: Verifier
+  /** Retry bound for verification; defaults to one attempt (fail → escalate). */
+  escalationPolicy?: EscalationPolicy
+  /** Success criteria handed to the verifier. */
+  criteria?: readonly string[]
 }
 
 export interface HandleInboundResult {
-  status: 'processed' | 'duplicate'
+  status: 'processed' | 'duplicate' | 'escalated' | 'needs-retry'
   sessionId?: string
   outboxIds: number[]
 }
@@ -25,11 +37,17 @@ export class Supervisor {
   readonly #ledger: DurableLedger
   readonly #bridge: BridgeApi
   readonly #cwd: string
+  readonly #verifier: Verifier | undefined
+  readonly #escalationPolicy: EscalationPolicy
+  readonly #criteria: readonly string[]
 
   constructor(ledger: DurableLedger, bridge: BridgeApi, options: SupervisorOptions) {
     this.#ledger = ledger
     this.#bridge = bridge
     this.#cwd = options.cwd
+    this.#verifier = options.verifier
+    this.#escalationPolicy = options.escalationPolicy ?? { maxAttempts: 1 }
+    this.#criteria = options.criteria ?? []
   }
 
   /**
@@ -71,8 +89,13 @@ export class Supervisor {
 
     const parsed = parsePayload(row.payload)
     const outboxIds: number[] = []
+    let assistantText = ''
     if (parsed.text !== '') {
       const result = await this.#bridge.prompt(sessionId, parsed.text, `prompt:${operationId}`)
+      assistantText = result.messages
+        .filter((message) => message.role === 'assistant')
+        .map((message) => message.text)
+        .join('\n')
       for (const [index, message] of result.messages.entries()) {
         if (message.role !== 'assistant' || message.text === '') continue
         const outbound = this.#ledger.enqueueOutbound({
@@ -89,8 +112,32 @@ export class Supervisor {
       }
     }
 
-    this.#ledger.completeInbound(operationId)
-    return { status: 'processed', sessionId, outboxIds }
+    if (this.#verifier === undefined) {
+      this.#ledger.completeInbound(operationId)
+      return { status: 'processed', sessionId, outboxIds }
+    }
+
+    const context: VerificationContext = {
+      taskOperationId: operationId,
+      taskText: parsed.text,
+      criteria: this.#criteria,
+      evidence: { assistantText, effects: [], deliveries: [] },
+    }
+    const verdict = await this.#verifier.verify(context)
+    const attempt = this.#ledger.verificationAttempts(operationId).length + 1
+    this.#ledger.recordVerification(operationId, attempt, verdict.kind, verdict.kind === 'verified' ? undefined : verdict.reason)
+    const decision = decideNext(verdict, attempt, this.#escalationPolicy)
+
+    if (decision.action === 'complete') {
+      this.#ledger.completeInbound(operationId)
+      return { status: 'processed', sessionId, outboxIds }
+    }
+    if (decision.action === 'escalate') {
+      this.#ledger.markInboxNeedsHuman(operationId)
+      return { status: 'escalated', sessionId, outboxIds }
+    }
+    this.#ledger.markInboxVerifying(operationId)
+    return { status: 'needs-retry', sessionId, outboxIds }
   }
 }
 
