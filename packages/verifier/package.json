@@ -1,5 +1,5 @@
 {
-  "name": "@star/employee-supervisor",
+  "name": "@star/employee-verifier",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -16,10 +16,5 @@
   ],
   "scripts": {
     "build": "tsup src/index.ts --format esm --dts --clean"
-  },
-  "dependencies": {
-    "@star/employee-bridge": "workspace:*",
-    "@star/employee-ledger": "workspace:*",
-    "@star/employee-verifier": "workspace:*"
   }
 }

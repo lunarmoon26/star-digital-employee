@@ -261,6 +261,7 @@ omit.
 - [0011: Workspace broker contract](decisions/0011-workspace-broker-contract.md)
 - [0012: Temporal supervisory workflow boundary](decisions/0012-temporal-supervisory-workflow-boundary.md)
 - [0013: Release readiness gates](decisions/0013-release-readiness.md)
+- [0014: Outcome verification and escalation](decisions/0014-outcome-verification-and-escalation.md)
 
 ## Risks
 

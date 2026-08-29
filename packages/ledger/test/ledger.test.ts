@@ -110,4 +110,26 @@ describe('durable supervisor ledger', () => {
     expect(ledger.effectByOperation('op-eff-1')?.decidedBy).toBe('supervisor-1')
     ledger.close()
   })
+
+  it('records verification attempts and parks retry/escalation states', async () => {
+    const path = await ledgerFile()
+    const ledger = new DurableLedger(path)
+    ledger.acceptInbound({ operationId: 'op-1', providerEventId: 'evt-1', channel: 'slack', account: 'acct', payload: { text: 'hi' } })
+
+    ledger.recordVerification('op-1', 1, 'failed', 'bad output')
+    ledger.recordVerification('op-1', 2, 'verified')
+    const attempts = ledger.verificationAttempts('op-1')
+    expect(attempts.map((attempt) => attempt.verdict)).toEqual(['failed', 'verified'])
+    expect(attempts[0]?.reason).toBe('bad output')
+    expect(attempts[1]?.attempt).toBe(2)
+
+    ledger.markInboxVerifying('op-1')
+    expect(ledger.inboxByOperation('op-1')?.status).toBe('verifying')
+    // A verifying envelope is parked for retry; reconcile must not reprocess it.
+    expect(ledger.listIncompleteInbox().map((row) => row.operationId)).not.toContain('op-1')
+
+    ledger.markInboxNeedsHuman('op-1')
+    expect(ledger.inboxByOperation('op-1')?.status).toBe('needs-human')
+    ledger.close()
+  })
 })

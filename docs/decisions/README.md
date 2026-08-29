@@ -19,3 +19,4 @@ own rationale and consequences.
 | [0011: Workspace broker contract](0011-workspace-broker-contract.md) | Accepted |
 | [0012: Temporal supervisory workflow boundary](0012-temporal-supervisory-workflow-boundary.md) | Accepted |
 | [0013: Release readiness gates](0013-release-readiness.md) | Accepted |
+| [0014: Outcome verification and escalation](0014-outcome-verification-and-escalation.md) | Accepted |

@@ -142,11 +142,19 @@ Completed in the durable-ledger slice (ADR 0003):
    and `GmailConnector` (OAuth, poll + threaded send), with a live Slack echo
    script (`pnpm slack:echo`) and `.env.example`. Remaining is the approvals TUI.
 
+8. Defined the outcome verification and escalation stage (ADR 0014) and added
+   `@star/employee-verifier`: a typed `Verifier` contract over task criteria and
+   evidence, plus `decideNext` escalation policy (`verified` completes, retryable
+   `failed` retries up to a bound, `needs-human` and exhausted retries escalate).
+   Wiring the verifier into the supervisor and the ledger `verifications` table
+   is the remaining implementation.
+
 Remaining M2 gates:
 
-8. Exercise the live Slack echo loop against the created workspaces, then
-   fault-injection tests over every commit, dispatch, delivery, and
-   acknowledgement boundary in the running employee.
+9. Exercise the live Slack echo loop against the created workspaces, wire the
+   verifier into the supervisor state machine, then fault-injection tests over
+   every commit, dispatch, delivery, verification, and acknowledgement boundary
+   in the running employee.
 
 ## M3 Kubernetes Production
 

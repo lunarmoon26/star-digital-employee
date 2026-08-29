@@ -4,6 +4,7 @@ import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
 import type { BridgePromptResult } from '@star/employee-bridge'
 import { DurableLedger } from '@star/employee-ledger'
+import type { Verifier, VerifyVerdict } from '@star/employee-verifier'
 import type { BridgeApi, CreatedSession } from '../src/index.js'
 import { Supervisor } from '../src/index.js'
 
@@ -146,5 +147,76 @@ describe('supervisor state machine', () => {
     expect(results).toHaveLength(0)
     expect(bridge.promptCalls).toHaveLength(1)
     reopened.close()
+  })
+})
+
+class FakeVerifier implements Verifier {
+  verdicts: VerifyVerdict[] = []
+
+  async verify(): Promise<VerifyVerdict> {
+    return this.verdicts.shift() ?? { kind: 'verified' }
+  }
+}
+
+describe('supervisor outcome verification', () => {
+  it('completes a task on a verified verdict', async () => {
+    const ledger = new DurableLedger(await ledgerFile())
+    const bridge = new FakeBridge()
+    const verifier = new FakeVerifier()
+    verifier.verdicts.push({ kind: 'verified' })
+    const supervisor = new Supervisor(ledger, bridge, { cwd: '/workspace', verifier })
+
+    const result = await supervisor.handleInbound(envelope('op-1', 'C1', 'hello'))
+    expect(result.status).toBe('processed')
+    expect(ledger.inboxByOperation('op-1')?.status).toBe('completed')
+    expect(ledger.verificationAttempts('op-1').map((attempt) => attempt.verdict)).toEqual(['verified'])
+    ledger.close()
+  })
+
+  it('parks a retryable failed verdict for a later attempt', async () => {
+    const ledger = new DurableLedger(await ledgerFile())
+    const bridge = new FakeBridge()
+    const verifier = new FakeVerifier()
+    verifier.verdicts.push({ kind: 'failed', reason: 'bad output' })
+    const supervisor = new Supervisor(ledger, bridge, {
+      cwd: '/workspace',
+      verifier,
+      escalationPolicy: { maxAttempts: 3 },
+    })
+
+    const result = await supervisor.handleInbound(envelope('op-1', 'C1', 'hello'))
+    expect(result.status).toBe('needs-retry')
+    expect(ledger.inboxByOperation('op-1')?.status).toBe('verifying')
+    ledger.close()
+  })
+
+  it('escalates when the retry bound is exhausted', async () => {
+    const ledger = new DurableLedger(await ledgerFile())
+    const bridge = new FakeBridge()
+    const verifier = new FakeVerifier()
+    verifier.verdicts.push({ kind: 'failed', reason: 'still wrong' })
+    const supervisor = new Supervisor(ledger, bridge, {
+      cwd: '/workspace',
+      verifier,
+      escalationPolicy: { maxAttempts: 1 },
+    })
+
+    const result = await supervisor.handleInbound(envelope('op-1', 'C1', 'hello'))
+    expect(result.status).toBe('escalated')
+    expect(ledger.inboxByOperation('op-1')?.status).toBe('needs-human')
+    ledger.close()
+  })
+
+  it('escalates immediately on a needs-human verdict', async () => {
+    const ledger = new DurableLedger(await ledgerFile())
+    const bridge = new FakeBridge()
+    const verifier = new FakeVerifier()
+    verifier.verdicts.push({ kind: 'needs-human', reason: 'ambiguous identity' })
+    const supervisor = new Supervisor(ledger, bridge, { cwd: '/workspace', verifier })
+
+    const result = await supervisor.handleInbound(envelope('op-1', 'C1', 'hello'))
+    expect(result.status).toBe('escalated')
+    expect(ledger.inboxByOperation('op-1')?.status).toBe('needs-human')
+    ledger.close()
   })
 })

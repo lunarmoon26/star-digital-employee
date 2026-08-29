@@ -12,13 +12,13 @@ export type OperationId = string
 export type EffectOutcome = 'pending' | 'completed' | 'failed' | 'unknown'
 
 /** Lifecycle of an accepted inbound envelope. */
-export type InboxStatus = 'accepted' | 'routed' | 'completed' | 'failed'
+export type InboxStatus = 'accepted' | 'routed' | 'verifying' | 'completed' | 'failed' | 'needs-human'
 
 /** Lifecycle of a committed outbound obligation. */
 export type OutboxStatus = 'pending' | 'delivered' | 'unknown' | 'failed'
 
 /** Lifecycle of a derived task. */
-export type TaskStatus = 'pending' | 'running' | 'completed' | 'failed' | 'cancelled'
+export type TaskStatus = 'pending' | 'running' | 'verifying' | 'completed' | 'failed' | 'cancelled' | 'needs-human'
 
 /** Lifecycle of an approval decision. */
 export type ApprovalStatus = 'pending' | 'approved' | 'rejected'
@@ -144,3 +144,16 @@ export interface BegunEffect {
 
 /** Delivery result: either the provider's message id or an ambiguous outcome. */
 export type DeliveryResult = { providerMessageId: string } | { ambiguous: true }
+
+/** A durable outcome-verification attempt (ADR 0014). */
+export type VerificationVerdict = 'verified' | 'failed' | 'needs-human'
+
+/** A persisted verification attempt, correlated by task operation id. */
+export interface VerificationRecord {
+  verificationId: number
+  taskOperationId: string
+  attempt: number
+  verdict: VerificationVerdict
+  reason: string | null
+  verifiedAt: number
+}
